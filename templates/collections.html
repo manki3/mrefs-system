@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>내 매물 리스트 관리</h1>
+
+<div style="margin-bottom:10px;">
+    <button class="big-btn home-btn" onclick="goHome()">홈으로 가기</button>
+</div>
+
+<hr>
+
+<h3>새 리스트 만들기</h3>
+
+<form method="POST" action="/collections/new">
+    <input type="text" name="title" placeholder="리스트 제목 입력">
+    <button type="submit">생성</button>
+</form>
+
+<hr>
+
+<h3>생성된 리스트</h3>
+
+<table border="1" cellpadding="5">
+<tr>
+    <th>리스트 제목</th>
+    <th>관리</th>
+</tr>
+
+{% for c in lists %}
+<tr>
+    <td>
+        <a href="/collections/{{ c.id }}">{{ c.title }}</a>
+    </td>
+    <td>
+        <a href="/collections/delete/{{ c.id }}">삭제</a>
+    </td>
+</tr>
+{% endfor %}
+
+</table>
+
+{% endblock %}

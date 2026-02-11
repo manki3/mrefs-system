@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MK 부동산 장부</title>
+
+    <style>
+        .big-btn {
+            font-size: 18px;
+            padding: 12px 24px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .home-btn {
+            background-color: #666;
+            color: white;
+        }
+
+        .search-btn {
+            background-color: #2d7ff9;
+            color: white;
+        }
+
+        .big-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+
+    <script>
+        function goHome() {
+            window.location.href = "/";
+        }
+    </script>
+
+</head>
+<body>
+
+<h1>MK 부동산 장부 시스템</h1>
+
+{% if not hide_menu %}
+<a href="/">홈</a> |
+<a href="/add">매물등록</a> |
+<a href="/excel_upload">엑셀업로드</a>
+{% endif %}
+
+
+<hr>
+
+{% block content %}
+{% endblock %}
+
+</body>
+</html>

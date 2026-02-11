@@ -1,0 +1,106 @@
+
+<h1>부동산 장부 시스템</h1>
+
+<a href="/?mode=rent">월세 매물 보기</a> |
+<a href="/?mode=sale">매매 매물 보기</a> |
+<a href="/search">매물 검색</a> |
+<a href="{{ url_for('quick_add') }}">빠른 매물등록</a> |
+<a href="/excel_upload">엑셀업로드</a> |
+<a href="/collections">내 매물 리스트 관리</a>
+
+
+<hr>
+
+<div style="margin-bottom:10px; color:blue;">
+    최신화 날짜 : {{ upload_time }}
+</div>
+
+<div style="margin-bottom:10px; color:green;">
+    전체 매물 수 : {{ properties|length }} 개
+</div>
+
+{% if mode == "sale" %}
+<h2>매매 매물 목록 ({{ properties|length }} 개)</h2>
+{% else %}
+<h2>월세 매물 목록 ({{ properties|length }} 개)</h2>
+{% endif %}
+
+<div style="margin-bottom:15px;">
+
+    <form method="get" style="display:inline; margin-right:20px;">
+
+        <input type="hidden" name="mode" value="{{ mode }}">
+
+        <strong>매물종류 :</strong>
+
+        <select name="property_type" onchange="this.form.submit()" style="padding:5px;">
+
+            <option value="" {% if not property_type %}selected{% endif %}>전체</option>
+
+            <option value="상가" {% if property_type == '상가' %}selected{% endif %}>상가</option>
+
+            <option value="사무실" {% if property_type == '사무실' %}selected{% endif %}>사무실</option>
+
+            <option value="주거용" {% if property_type == '주거용' %}selected{% endif %}>주거용</option>
+
+        </select>
+
+    </form>
+
+
+    <strong>정렬 :</strong>
+
+    <a href="/?mode={{ mode }}&property_type={{ property_type }}" style="margin-right:10px;">[기본정렬]</a>
+
+    {% if mode == "sale" %}
+
+        <a href="/?mode=sale&sort=sale_asc&property_type={{ property_type }}" style="margin-right:10px;">[매매가 ▲]</a>
+        <a href="/?mode=sale&sort=sale_desc&property_type={{ property_type }}" style="margin-right:10px;">[매매가 ▼]</a>
+
+    {% else %}
+
+        <a href="/?mode=rent&sort=rent_asc&property_type={{ property_type }}" style="margin-right:10px;">[월세 ▲]</a>
+        <a href="/?mode=rent&sort=rent_desc&property_type={{ property_type }}" style="margin-right:10px;">[월세 ▼]</a>
+
+    {% endif %}
+
+    <a href="/?mode={{ mode }}&sort=area_asc&property_type={{ property_type }}" style="margin-right:10px;">[평수 ▲]</a>
+    <a href="/?mode={{ mode }}&sort=area_desc&property_type={{ property_type }}" style="margin-right:10px;">[평수 ▼]</a>
+
+</div>
+
+
+
+<table border="1" cellpadding="5">
+
+<tr>
+    <th>종류</th>
+    <th>건물명</th>
+    <th>전용(평)</th>
+    <th>계약(평)</th>
+
+    {% if mode == "sale" %}
+        <th>매매가</th>
+    {% else %}
+        <th>보증금</th>
+        <th>월세</th>
+    {% endif %}
+</tr>
+
+{% for p in properties %}
+<tr>
+    <td>[{{ p.property_type }}]</td>
+    <td>{{ p.building_name }}</td>
+    <td>{{ p.exclusive_area }}</td>
+    <td>{{ p.contract_area }}</td>
+
+    {% if mode == "sale" %}
+        <td>{{ format_sale_price_korean(p.sale_price) }}</td>
+    {% else %}
+        <td>{{ p.deposit }}</td>
+        <td>{{ p.rent }}</td>
+    {% endif %}
+</tr>
+{% endfor %}
+
+</table>

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>매물 등록</h2>
+
+<form method="POST">
+
+건물명:<br>
+<input name="building_name"><br><br>
+
+전용평수:<br>
+<input name="exclusive_area"><br><br>
+
+계약평수:<br>
+<input name="contract_area"><br><br>
+
+보증금:<br>
+<input name="deposit"><br><br>
+
+월세:<br>
+<input name="rent"><br><br>
+
+특징:<br>
+<textarea name="feature" rows="3" cols="40"></textarea><br><br>
+
+임차인 (이름+연락처):<br>
+<textarea name="tenant" rows="2" cols="40"></textarea><br><br>
+
+임대인 (이름+연락처):<br>
+<textarea name="owner" rows="2" cols="40"></textarea><br><br>
+
+<button type="submit">등록</button>
+
+</form>
+
+{% endblock %}

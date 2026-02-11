@@ -1,0 +1,109 @@
+<h1>{{ collection.title }}</h1>
+
+<div style="margin-bottom:10px;">
+    <a href="/collections">리스트 목록으로</a> |
+    <a href="/">홈으로 가기</a>
+</div>
+
+<hr>
+
+<h3>담긴 매물 목록 (드래그로 순서 변경 가능)</h3>
+
+<div style="margin-bottom:15px;">
+
+정렬 :
+
+<a href="?sort=name">건물이름순</a> |
+
+<a href="?sort=area_desc">평수 큰순</a> |
+<a href="?sort=area_asc">평수 작은순</a> |
+
+<a href="?sort=rent_desc">월세 높은순</a> |
+<a href="?sort=rent_asc">월세 낮은순</a>
+
+</div>
+
+
+<form method="POST" action="{{ url_for('remove_multiple', collection_id=collection.id) }}">
+
+<div style="margin-bottom:10px;">
+
+    <button type="submit" onclick="return confirm('선택한 매물을 모두 삭제하시겠습니까?');">
+        선택 삭제
+    </button>
+
+    <a href="{{ url_for('clear_collection', collection_id=collection.id) }}"
+       onclick="return confirm('이 리스트의 매물을 전부 삭제하시겠습니까?');"
+       style="margin-left:10px; color:white; background:#d9534f; padding:6px 12px; text-decoration:none; border-radius:4px;">
+       모두 삭제
+    </a>
+
+</div>
+
+
+<table border="1" cellpadding="5">
+
+<tr>
+    <th>선택</th>
+    <th>이동</th>
+    <th>건물명</th>
+    <th>전용(평)</th>
+    <th>보증금</th>
+    <th>월세</th>
+    <th>매매가</th>
+</tr>
+
+<tbody id="sortable">
+{% for p in properties %}
+<tr data-id="{{ p.collection_item_id }}">
+    <td>
+        <input type="checkbox" name="delete_ids" value="{{ p.id }}">
+    </td>
+    <td style="cursor:move;">⇅</td>
+    <td>{{ p.building_name }}</td>
+    <td>{{ p.exclusive_area }}</td>
+    <td>{{ p.deposit }}</td>
+    <td>{{ p.rent }}</td>
+    <td>{{ p.sale_price }}</td>
+</tr>
+{% endfor %}
+</tbody>
+
+</table>
+
+</form>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+<script>
+
+var el = document.getElementById('sortable');
+
+new Sortable(el, {
+    animation: 150,
+
+    onEnd: function () {
+
+        var rows = document.querySelectorAll("#sortable tr");
+
+        var data = [];
+
+        rows.forEach(function(row, index) {
+            data.push({
+                id: row.getAttribute("data-id"),
+                position: index
+            });
+        });
+
+        fetch("/collections/reorder", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+    }
+});
+
+</script>

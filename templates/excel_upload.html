@@ -1,0 +1,45 @@
+<h1>엑셀 업로드</h1>
+
+<div style="margin-bottom:10px;">
+    <a href="/">홈으로 가기</a>
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file">
+    <button type="submit">업로드</button>
+</form>
+
+<hr>
+
+<div style="margin-top:15px;">
+    <button onclick="deleteAll()">전체 매물 삭제</button>
+</div>
+
+<hr>
+
+<h3>현재 매물 현황</h3>
+
+<p>전체 매물 수: {{ total_count }} 개</p>
+<p>월세 매물 수: {{ rent_count }} 개</p>
+<p>매매 매물 수: {{ sale_count }} 개</p>
+
+<hr>
+
+
+{% if result %}
+<hr>
+<h3>업로드 결과</h3>
+<ul>
+    <li>총 처리: {{ result.total }}건</li>
+    <li>신규 등록: {{ result.new }}건</li>
+    <li>기존 삭제: {{ result.old_deleted }}건</li>
+</ul>
+{% endif %}
+
+<script>
+function deleteAll() {
+    if (confirm("정말 모든 매물을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다!")) {
+        window.location.href = "/delete_all";
+    }
+}
+</script>

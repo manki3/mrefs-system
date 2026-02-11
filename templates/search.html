@@ -1,0 +1,249 @@
+<h1>매물 검색</h1>
+
+<div style="margin-bottom:10px;">
+    <button class="big-btn home-btn" onclick="goHome()">홈으로 가기</button>
+
+    <button class="big-btn list-btn" onclick="goList()" style="margin-left:10px;">
+        📋 매물 리스트로
+    </button>
+</div>
+
+<form method="GET" id="searchForm">
+
+건물명: 
+<input type="text" name="building" value="{{ request.args.get('building', '') }}"><br><br>
+
+
+매물종류:
+<select name="property_type">
+    <option value="">전체</option>
+    <option value="상가" {% if request.args.get('property_type') == '상가' %}selected{% endif %}>상가</option>
+    <option value="사무실" {% if request.args.get('property_type') == '사무실' %}selected{% endif %}>사무실</option>
+    <option value="주거용" {% if request.args.get('property_type') == '주거용' %}selected{% endif %}>주거용</option>
+</select>
+
+<br><br>
+
+
+거래구분:
+<select name="category" id="category" onchange="toggleInputs()">
+    <option value="" {% if request.args.get('category') == '' %}selected{% endif %}>전체</option>
+    <option value="월세" {% if request.args.get('category') == '월세' %}selected{% endif %}>월세</option>
+    <option value="매매" {% if request.args.get('category') == '매매' %}selected{% endif %}>매매</option>
+</select>
+
+<br><br>
+
+
+<div id="rentInputs">
+보증금:
+<input type="number" name="min_deposit" value="{{ request.args.get('min_deposit', '') }}"> ~
+<input type="number" name="max_deposit" value="{{ request.args.get('max_deposit', '') }}"><br><br>
+
+월세:
+<input type="number" name="min_rent" value="{{ request.args.get('min_rent', '') }}"> ~
+<input type="number" name="max_rent" value="{{ request.args.get('max_rent', '') }}"><br><br>
+</div>
+
+<div id="saleInputs">
+매매가:
+<input type="number" name="min_sale" value="{{ request.args.get('min_sale', '') }}"> ~
+<input type="number" name="max_sale" value="{{ request.args.get('max_sale', '') }}"><br><br>
+</div>
+
+전용면적(평):
+<input type="number" name="min_area" value="{{ request.args.get('min_area', '') }}"> ~
+<input type="number" name="max_area" value="{{ request.args.get('max_area', '') }}"><br><br>
+
+<button type="submit" class="big-btn search-btn">검색</button>
+
+</form>
+
+<hr>
+
+{% if properties is not none %}
+
+<h2>검색 결과</h2>
+
+<div style="text-align:center; margin-bottom:10px;">
+
+<form method="GET" id="sortForm">
+
+{% for key, value in request.args.items() %}
+    {% if key != 'sort' %}
+        <input type="hidden" name="{{ key }}" value="{{ value }}">
+    {% endif %}
+{% endfor %}
+
+정렬:
+<select name="sort" id="sortSelect" onchange="toggleSortOptions()">
+    <option value="">정렬 안함</option>
+
+    <option value="rent_asc" class="rentOption" {% if request.args.get('sort') == 'rent_asc' %}selected{% endif %}>월세 낮은순</option>
+    <option value="rent_desc" class="rentOption" {% if request.args.get('sort') == 'rent_desc' %}selected{% endif %}>월세 높은순</option>
+
+    <option value="sale_asc" class="saleOption" {% if request.args.get('sort') == 'sale_asc' %}selected{% endif %}>매매가 낮은순</option>
+    <option value="sale_desc" class="saleOption" {% if request.args.get('sort') == 'sale_desc' %}selected{% endif %}>매매가 높은순</option>
+
+    <option value="area_asc" {% if request.args.get('sort') == 'area_asc' %}selected{% endif %}>평수 작은순</option>
+    <option value="area_desc" {% if request.args.get('sort') == 'area_desc' %}selected{% endif %}>평수 큰순</option>
+</select>
+
+<button type="submit">정렬 적용</button>
+
+</form>
+
+</div>
+
+<table border="1" cellpadding="5">
+<tr>
+    <th>종류</th> 
+    <th>건물명</th>
+    <th>전용</th>
+    <th>보증금</th>
+    <th>월세</th>
+    <th>매매가</th>
+    <th>리스트 담기</th>
+</tr>
+
+{% for p in properties %}
+<tr>
+    <td>[{{ p.property_type }}]</td>
+    <td>{{ p.building_name }}</td>
+    <td>{{ p.exclusive_area }}</td>
+    <td>{{ p.deposit }}</td>
+    <td>{{ p.rent }}</td>
+    <td>{{ format_sale_price_korean(p.sale_price) }}</td>
+
+    <td>
+
+{% if p.id in existing_ids %}
+
+    <button disabled style="background:#ccc; color:#666; border:none; padding:6px 12px; border-radius:4px;">
+        ✔ 이미 담김
+    </button>
+
+{% else %}
+
+<form method="POST" action="{{ url_for('add_to_collection') }}">
+
+<input type="hidden" name="property_id" value="{{ p.id }}">
+
+{% for key, value in request.args.items() %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+{% endfor %}
+
+<select name="collection_id">
+    {% for c in collections %}
+    <option value="{{ c.id }}">{{ c.title }}</option>
+    {% endfor %}
+</select>
+
+<button type="submit">담기</button>
+
+</form>
+
+{% endif %}
+
+</td>
+
+</tr>
+{% endfor %}
+
+</table>
+
+{% endif %}
+
+
+<style>
+.big-btn {
+    font-size: 18px;
+    padding: 12px 24px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.home-btn {
+    background-color: #666;
+    color: white;
+}
+
+.search-btn {
+    background-color: #2d7ff9;
+    color: white;
+}
+
+.list-btn {
+    background-color: #ff8c00;
+    color: white;
+}
+
+
+.big-btn:hover {
+    opacity: 0.9;
+}
+</style>
+
+
+<script>
+
+function toggleInputs() {
+    var category = document.getElementById("category").value;
+
+    if (category == "월세") {
+        document.getElementById("rentInputs").style.display = "block";
+        document.getElementById("saleInputs").style.display = "none";
+
+    } else if (category == "매매") {
+        document.getElementById("rentInputs").style.display = "none";
+        document.getElementById("saleInputs").style.display = "block";
+
+    } else {
+        document.getElementById("rentInputs").style.display = "block";
+        document.getElementById("saleInputs").style.display = "block";
+    }
+}
+
+function toggleSortOptions() {
+
+    var category = document.getElementById("category").value;
+
+    if (category == "월세") {
+        document.querySelectorAll(".rentOption").forEach(e => e.style.display = "block");
+        document.querySelectorAll(".saleOption").forEach(e => e.style.display = "none");
+
+    } else if (category == "매매") {
+        document.querySelectorAll(".rentOption").forEach(e => e.style.display = "none");
+        document.querySelectorAll(".saleOption").forEach(e => e.style.display = "block");
+
+    } else {
+        document.querySelectorAll(".rentOption").forEach(e => e.style.display = "block");
+        document.querySelectorAll(".saleOption").forEach(e => e.style.display = "block");
+    }
+}
+
+function goHome() {
+    window.location.href = "/";
+}
+
+function goList() {
+    window.location.href = "/collections";
+}
+
+
+window.onload = function() {
+    toggleInputs();
+    toggleSortOptions();
+
+    if (window.history && window.history.pushState) {
+        history.pushState(null, "", location.href);
+
+        window.onpopstate = function() {
+            window.location.href = "/";
+        };
+    }
+};
+
+</script>
