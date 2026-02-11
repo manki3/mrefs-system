@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>매물 전체 리스트</h2>
+
+<div class="menu">
+    <a href="/">메인 검색</a>
+    <a href="/list">전체메뉴</a>
+    <a href="/excel_upload">엑셀업로드</a>
+</div>
+
+<div class="card info-box">
+    📅 최신화 날짜 : {{ upload_time }}
+</div>
+
+{% if mode == "sale" %}
+<h3>매매 매물 목록</h3>
+{% else %}
+<h3>월세 매물 목록</h3>
+{% endif %}
+
+{% for p in properties %}
+
+<div class="card property-card">
+
+    <div class="title">
+        {{ p.building_name }}
+    </div>
+
+    <div class="detail">
+        전용 : {{ p.exclusive_area }}평 / 계약 : {{ p.contract_area }}평
+    </div>
+
+    {% if mode == "sale" %}
+        <div class="price">
+            매매가 : {{ format_sale_price_korean(p.sale_price) }}
+        </div>
+    {% else %}
+        <div class="price">
+            보증금 {{ p.deposit }} / 월세 {{ p.rent }}
+        </div>
+    {% endif %}
+
+</div>
+
+{% endfor %}
+
+{% endblock %}
