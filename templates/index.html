@@ -1,106 +1,95 @@
+<div class="container">
 
 <h1>부동산 장부 시스템</h1>
 
-<a href="/?mode=rent">월세 매물 보기</a> |
-<a href="/?mode=sale">매매 매물 보기</a> |
-<a href="/search">매물 검색</a> |
-<a href="{{ url_for('quick_add') }}">빠른 매물등록</a> |
-<a href="/excel_upload">엑셀업로드</a> |
-<a href="/collections">내 매물 리스트 관리</a>
-
-
-<hr>
-
-<div style="margin-bottom:10px; color:blue;">
-    최신화 날짜 : {{ upload_time }}
+<div class="menu">
+    <a href="/?mode=rent">월세 보기</a>
+    <a href="/?mode=sale">매매 보기</a>
+    <a href="/search">매물 검색</a>
+    <a href="{{ url_for('quick_add') }}">빠른등록</a>
+    <a href="/excel_upload">엑셀업로드</a>
+    <a href="/collections">내 리스트</a>
 </div>
 
-<div style="margin-bottom:10px; color:green;">
-    전체 매물 수 : {{ properties|length }} 개
+<div class="card info-box">
+    <div>📅 최신화 날짜 : {{ upload_time }}</div>
+    <div>📦 전체 매물 수 : {{ properties|length }} 개</div>
 </div>
 
 {% if mode == "sale" %}
-<h2>매매 매물 목록 ({{ properties|length }} 개)</h2>
+<h2>매매 매물 목록</h2>
 {% else %}
-<h2>월세 매물 목록 ({{ properties|length }} 개)</h2>
+<h2>월세 매물 목록</h2>
 {% endif %}
 
-<div style="margin-bottom:15px;">
+<div class="card">
 
-    <form method="get" style="display:inline; margin-right:20px;">
+<form method="get">
 
-        <input type="hidden" name="mode" value="{{ mode }}">
+    <input type="hidden" name="mode" value="{{ mode }}">
 
+    <div class="filter-row">
         <strong>매물종류 :</strong>
 
-        <select name="property_type" onchange="this.form.submit()" style="padding:5px;">
-
+        <select name="property_type" onchange="this.form.submit()">
             <option value="" {% if not property_type %}selected{% endif %}>전체</option>
-
             <option value="상가" {% if property_type == '상가' %}selected{% endif %}>상가</option>
-
             <option value="사무실" {% if property_type == '사무실' %}selected{% endif %}>사무실</option>
-
             <option value="주거용" {% if property_type == '주거용' %}selected{% endif %}>주거용</option>
-
         </select>
+    </div>
 
-    </form>
+</form>
 
+<div class="sort-buttons">
 
-    <strong>정렬 :</strong>
-
-    <a href="/?mode={{ mode }}&property_type={{ property_type }}" style="margin-right:10px;">[기본정렬]</a>
+    <a href="/?mode={{ mode }}&property_type={{ property_type }}">기본정렬</a>
 
     {% if mode == "sale" %}
-
-        <a href="/?mode=sale&sort=sale_asc&property_type={{ property_type }}" style="margin-right:10px;">[매매가 ▲]</a>
-        <a href="/?mode=sale&sort=sale_desc&property_type={{ property_type }}" style="margin-right:10px;">[매매가 ▼]</a>
-
+        <a href="/?mode=sale&sort=sale_asc&property_type={{ property_type }}">매매가 ▲</a>
+        <a href="/?mode=sale&sort=sale_desc&property_type={{ property_type }}">매매가 ▼</a>
     {% else %}
-
-        <a href="/?mode=rent&sort=rent_asc&property_type={{ property_type }}" style="margin-right:10px;">[월세 ▲]</a>
-        <a href="/?mode=rent&sort=rent_desc&property_type={{ property_type }}" style="margin-right:10px;">[월세 ▼]</a>
-
+        <a href="/?mode=rent&sort=rent_asc&property_type={{ property_type }}">월세 ▲</a>
+        <a href="/?mode=rent&sort=rent_desc&property_type={{ property_type }}">월세 ▼</a>
     {% endif %}
 
-    <a href="/?mode={{ mode }}&sort=area_asc&property_type={{ property_type }}" style="margin-right:10px;">[평수 ▲]</a>
-    <a href="/?mode={{ mode }}&sort=area_desc&property_type={{ property_type }}" style="margin-right:10px;">[평수 ▼]</a>
+    <a href="/?mode={{ mode }}&sort=area_asc&property_type={{ property_type }}">평수 ▲</a>
+    <a href="/?mode={{ mode }}&sort=area_desc&property_type={{ property_type }}">평수 ▼</a>
+
+</div>
 
 </div>
 
 
-
-<table border="1" cellpadding="5">
-
-<tr>
-    <th>종류</th>
-    <th>건물명</th>
-    <th>전용(평)</th>
-    <th>계약(평)</th>
-
-    {% if mode == "sale" %}
-        <th>매매가</th>
-    {% else %}
-        <th>보증금</th>
-        <th>월세</th>
-    {% endif %}
-</tr>
-
 {% for p in properties %}
-<tr>
-    <td>[{{ p.property_type }}]</td>
-    <td>{{ p.building_name }}</td>
-    <td>{{ p.exclusive_area }}</td>
-    <td>{{ p.contract_area }}</td>
+
+<div class="card property-card">
+
+    <div class="title">
+        {{ p.building_name }}
+    </div>
+
+    <div class="detail">
+        종류 : {{ p.property_type }}
+    </div>
+
+    <div class="detail">
+        전용 : {{ p.exclusive_area }}평 /
+        계약 : {{ p.contract_area }}평
+    </div>
 
     {% if mode == "sale" %}
-        <td>{{ format_sale_price_korean(p.sale_price) }}</td>
+        <div class="price">
+            매매가 : {{ format_sale_price_korean(p.sale_price) }}
+        </div>
     {% else %}
-        <td>{{ p.deposit }}</td>
-        <td>{{ p.rent }}</td>
+        <div class="price">
+            보증금 {{ p.deposit }} / 월세 {{ p.rent }}
+        </div>
     {% endif %}
-</tr>
+
+</div>
+
 {% endfor %}
 
-</table>
+</div>

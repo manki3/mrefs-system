@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8">
     <title>MK 부동산 장부</title>
 
@@ -10,30 +12,169 @@
     <meta property="og:url" content="https://mrefs-system.onrender.com">
     <meta property="og:type" content="website">
 
-    <style>
-        .big-btn {
-            font-size: 18px;
-            padding: 12px 24px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-        }
+<style>
 
-        .home-btn {
-            background-color: #666;
-            color: white;
-        }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f5f6f8;
+}
 
-        .search-btn {
-            background-color: #2d7ff9;
-            color: white;
-        }
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 10px;
+}
 
-        .big-btn:hover {
-            opacity: 0.9;
-        }
-    </style>
+h1 {
+    font-size: 20px;
+    margin: 10px 0;
+    text-align: center;
+}
+
+h2 {
+    font-size: 16px;
+    margin: 10px 0;
+}
+
+/* 상단 메뉴 */
+.menu {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.menu a {
+    text-align: center;
+    padding: 12px 6px;
+    background: #2d7ff9;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* 카드 기본 스타일 */
+.card {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* 정보박스 */
+.info-box {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* 필터 영역 */
+.filter-row {
+    margin-bottom: 10px;
+}
+
+select {
+    padding: 10px;
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+/* 정렬 버튼 영역 */
+.sort-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.sort-buttons a {
+    background: #eef2f7;
+    padding: 10px;
+    text-align: center;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    color: #333;
+    font-weight: bold;
+}
+
+/* 선택된 정렬 느낌 강조 */
+.sort-buttons a:hover {
+    background: #dfe6ef;
+}
+
+/* 매물 카드 */
+.property-card {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.property-card .title {
+    font-weight: bold;
+    font-size: 15px;
+    margin-bottom: 6px;
+}
+
+.property-card .detail {
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: #444;
+}
+
+.property-card .price {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #2d7ff9;
+    font-weight: bold;
+}
+
+/* 모바일 전용 최적화 */
+@media (max-width: 600px) {
+
+    .menu {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    h1 {
+        font-size: 18px;
+    }
+
+    .sort-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card {
+        padding: 10px;
+    }
+
+    .menu a {
+        font-size: 12px;
+    }
+
+    .property-card .title {
+        font-size: 14px;
+    }
+
+    .property-card .detail {
+        font-size: 12px;
+    }
+
+    .property-card .price {
+        font-size: 13px;
+    }
+}
+
+</style>
+
+
 
     <script>
         function goHome() {
@@ -44,12 +185,25 @@
 </head>
 <body>
 
-<h1>MK 부동산 장부 시스템</h1>
+<div class="container">
+
+<h1>MK 부동산 장부</h1>
 
 {% if not hide_menu %}
-<a href="/">홈</a> |
-<a href="/add">매물등록</a> |
-<a href="/excel_upload">엑셀업로드</a>
+<div class="menu">
+    <a href="/">홈</a>
+    <a href="/add">매물등록</a>
+    <a href="/excel_upload">엑셀업로드</a>
+</div>
+{% endif %}
+
+<hr>
+
+{% block content %}
+{% endblock %}
+
+</div>
+
 {% endif %}
 
 
