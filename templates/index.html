@@ -2,52 +2,6 @@
 
 {% block content %}
 
-<style>
-.menu {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 15px;
-}
-
-.menu a {
-    text-align: center;
-    padding: 14px 10px;
-    background: #2d7ff9;
-    color: white;
-    border-radius: 10px;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.menu a:hover {
-    opacity: 0.9;
-}
-
-@media (max-width: 600px) {
-    .menu {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-</style>
-
-
-<div class="container">
-
-<h1>부동산 장부 시스템</h1>
-
-<div class="menu">
-    <a href="/?mode=rent">월세</a>
-    <a href="/?mode=sale">매매</a>
-    <a href="/search">검색</a>
-
-    <a href="{{ url_for('quick_add') }}" class="pc-only">매물등록</a>
-    <a href="/excel_upload" class="pc-only">최신화</a>
-
-    <a href="/collections">내 리스트</a>
-</div>
-
 
 <div class="card info-box">
     <div>📅 최신화 날짜 : {{ upload_time }}</div>
@@ -119,8 +73,13 @@
 
         <div class="card-right">
             <div class="price">
-                보증금 {{ p.deposit }} / 월세 {{ p.rent }}
-            </div>
+               {% if p.category == "매매" %}
+                   매매가 {{ format_sale_price_korean(p.sale_price) }}
+               {% else %}
+                   임대 {{ p.deposit }}/{{ p.rent }}
+               {% endif %}
+        </div>
+
         </div>
     </div>
 

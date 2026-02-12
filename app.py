@@ -402,62 +402,6 @@ def index():
 
 
 
-@app.route("/excel_upload", methods=["GET", "POST"])
-@login_required
-def excel_upload():
-
-    if request.method == "POST":
-
-        file = request.files["file"]
-
-        filename = file.filename.lower()
-
-        if filename.endswith(".csv"):
-            df = pd.read_csv(file, encoding="cp949", dtype=str)
-        else:
-            df = pd.read_excel(file, dtype=str)
-
-        df.columns = df.columns.str.strip()
-
-        Property.query.delete()
-        db.session.commit()
-
-        for index, row in df.iterrows():
-
-            building = clean_building_name(row["상세주소"])
-
-            category, deposit, rent, sale = parse_price_auto(row["매물가"])
-
-            p = Property(
-                building_name=building,
-                exclusive_area=to_pyung(row["전용면적"]),
-                contract_area=to_pyung(row["공급/계약면적"]),
-                deposit=deposit,
-                rent=rent,
-                sale_price=sale,
-                category=category,
-
-                property_type=convert_property_type(row["매물종류"])
-            )
-
-            db.session.add(p)
-
-        db.session.commit()
-
-        log = UploadLog(upload_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        db.session.add(log)
-        db.session.commit()
-
-    total_count = Property.query.count()
-    rent_count = Property.query.filter_by(category="월세").count()
-    sale_count = Property.query.filter_by(category="매매").count()
-
-    return render_template(
-        "excel_upload.html",
-        total_count=total_count,
-        rent_count=rent_count,
-        sale_count=sale_count
-    )
 
 
 @app.route("/search", methods=["GET"])
@@ -538,13 +482,17 @@ def search():
 
     collections = Collection.query.all()
 
-    existing_ids = [item.property_id for item in CollectionItem.query.all()]
+    existing_pairs = set(
+    (item.property_id, item.collection_id)
+    for item in CollectionItem.query.all()
+)
+
 
     return render_template(
         "search.html",
         properties=results,
         collections=collections,
-        existing_ids=existing_ids,
+        existing_pairs=existing_pairs,
         format_sale_price_korean=format_sale_price_korean
     )
 
@@ -569,23 +517,12 @@ def search():
     )
 
 
-
-
-@app.route("/delete_all")
+@app.route("/register", methods=["GET", "POST"])
 @login_required
-def delete_all():
+def register():
 
-    Property.query.delete()
-    db.session.commit()
-
-    return redirect(url_for("excel_upload"))
-
-
-@app.route("/quick_add", methods=["GET", "POST"])
-@login_required
-def quick_add():
-
-    if request.method == "POST":
+    # -------- 빠른 매물 등록 --------
+    if request.method == "POST" and request.form.get("form_type") == "quick":
 
         raw_text = request.form.get("raw_text")
 
@@ -607,9 +544,76 @@ def quick_add():
         db.session.add(p)
         db.session.commit()
 
-        return redirect(url_for("index"))
+        return redirect(url_for("register"))
 
-    return render_template("quick_add.html", hide_menu=True)
+
+    # -------- 엑셀 최신화 --------
+    if request.method == "POST" and request.form.get("form_type") == "excel":
+
+        file = request.files["file"]
+
+        filename = file.filename.lower()
+
+        if filename.endswith(".csv"):
+            df = pd.read_csv(file, encoding="cp949", dtype=str)
+        else:
+            df = pd.read_excel(file, dtype=str)
+
+        df.columns = df.columns.str.strip()
+
+        Property.query.delete()
+        db.session.commit()
+
+        for index, row in df.iterrows():
+
+            building = clean_building_name(row["상세주소"])
+
+            category, deposit, rent, sale = parse_price_auto(row["매물가"])
+
+            p = Property(
+                building_name=building,
+                exclusive_area=to_pyung(row["전용면적"]),
+                contract_area=to_pyung(row["공급/계약면적"]),
+                deposit=deposit,
+                rent=rent,
+                sale_price=sale,
+                category=category,
+                property_type=convert_property_type(row["매물종류"])
+            )
+
+            db.session.add(p)
+
+        db.session.commit()
+
+        log = UploadLog(upload_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        db.session.add(log)
+        db.session.commit()
+
+        return redirect(url_for("register"))
+
+    total_count = Property.query.count()
+    rent_count = Property.query.filter_by(category="월세").count()
+    sale_count = Property.query.filter_by(category="매매").count()
+
+    return render_template(
+        "register.html",
+        total_count=total_count,
+        rent_count=rent_count,
+        sale_count=sale_count
+    )
+
+
+
+
+@app.route("/delete_all")
+@login_required
+def delete_all():
+
+    Property.query.delete()
+    db.session.commit()
+
+    return redirect(url_for("excel_upload"))
+
 
 
 
@@ -624,7 +628,6 @@ def collections():
     return render_template(
         "collections.html",
         lists=lists,
-        hide_menu=True
     )
 
 
@@ -796,7 +799,8 @@ def add_to_collection():
         db.session.add(item)
         db.session.commit()
 
-    return redirect(request.referrer)
+    return "", 204
+
 
 
 if __name__ == "__main__":

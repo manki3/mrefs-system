@@ -15,6 +15,21 @@
 <style>
 
 
+/* ===== PC 기준 상단 로고 스타일 개선 ===== */
+.site-header {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    padding: 14px 0;
+    color: #2d7ff9;
+    background: linear-gradient(to right, #f5f6f8, #ffffff, #f5f6f8);
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+
+
 /* ===== 공통 기본 스타일 ===== */
 
 body {
@@ -265,7 +280,66 @@ select {
     .menu a {
         font-size: 12px;
     }
+
+
+
 }
+
+/* ===== 메뉴 래퍼 ===== */
+.menu-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+
+/* ===== 떠있는 검색 FAB ===== */
+.search-fab {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+
+    background: #ffd9a8;
+    color: #ff8a00;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 26px;
+    text-decoration: none;
+
+    box-shadow: 0 10px 25px rgba(255,150,60,0.35);
+
+    transition: all 0.18s ease;
+
+    z-index: 10;
+
+    animation: floaty 2.4s ease-in-out infinite;
+}
+
+.search-fab:hover {
+    transform: translate(-50%, -55%) scale(1.08);
+    box-shadow: 0 18px 38px rgba(255,140,40,0.45);
+}
+
+.search-fab:active {
+    transform: translate(-50%, -40%) scale(0.92);
+}
+
+@keyframes floaty {
+    0% { transform: translate(-50%, -50%); }
+    50% { transform: translate(-50%, -60%); }
+    100% { transform: translate(-50%, -50%); }
+}
+
+
+
+
 
 </style>
 
@@ -276,10 +350,32 @@ select {
 <div class="container">
 
 
+    <div class="site-header">
+         FOCUS REAL ESTATE
+    </div>
+
+
+    <div class="menu-wrapper">
+
+    <div class="menu">
+        <a href="/?mode=rent">월세</a>
+        <a href="/?mode=sale">매매</a>
+        <a href="/register" class="pc-only">매물등록</a>
+        <a href="/collections">내 리스트</a>
+    </div>
+
+    <a href="/search" class="search-fab" title="매물 검색">
+        🔍
+    </a>
+
+</div>
+
+
 {% block content %}
 {% endblock %}
 
 </div>
 
 </body>
+
 </html>
