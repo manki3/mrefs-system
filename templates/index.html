@@ -41,10 +41,13 @@
     <a href="/?mode=rent">월세</a>
     <a href="/?mode=sale">매매</a>
     <a href="/search">검색</a>
-    <a href="{{ url_for('quick_add') }}">매물등록</a>
-    <a href="/excel_upload">최신화</a>
+
+    <a href="{{ url_for('quick_add') }}" class="pc-only">매물등록</a>
+    <a href="/excel_upload" class="pc-only">최신화</a>
+
     <a href="/collections">내 리스트</a>
 </div>
+
 
 <div class="card info-box">
     <div>📅 최신화 날짜 : {{ upload_time }}</div>
@@ -100,30 +103,29 @@
 
 <div class="card property-card">
 
-    <div class="title">
-        {{ p.building_name }}
-    </div>
+    <div class="card-row">
+        <div class="card-left">
+            <div class="title">{{ p.building_name }}</div>
 
-    <div class="detail">
-        종류 : {{ p.property_type }}
-    </div>
+            <div class="detail">
+                종류 : {{ p.property_type }}
+            </div>
 
-    <div class="detail">
-        전용 : {{ p.exclusive_area }}평 /
-        계약 : {{ p.contract_area }}평
-    </div>
-
-    {% if mode == "sale" %}
-        <div class="price">
-            매매가 : {{ format_sale_price_korean(p.sale_price) }}
+            <div class="detail">
+                전용 : {{ p.exclusive_area }}평 /
+                계약 : {{ p.contract_area }}평
+            </div>
         </div>
-    {% else %}
-        <div class="price">
-            보증금 {{ p.deposit }} / 월세 {{ p.rent }}
+
+        <div class="card-right">
+            <div class="price">
+                보증금 {{ p.deposit }} / 월세 {{ p.rent }}
+            </div>
         </div>
-    {% endif %}
+    </div>
 
 </div>
+
 
 {% endfor %}
 

@@ -63,6 +63,44 @@ body {
 }
 
 
+/* 모바일에서 숨길 요소 */
+@media (max-width: 800px) {
+    .pc-only {
+        display: none !important;
+    }
+}
+
+
+/* 매물 카드 레이아웃 */
+.card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-left {
+    flex: 1;
+}
+
+.card-right {
+    text-align: right;
+    min-width: 160px;
+}
+
+/* 가격을 가로 한 줄로 */
+.price {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    font-weight: bold;
+    color: #2d7ff9;
+    font-size: 16px;
+}
+
+
+
+
 /* ===== PC 전용 UI ===== */
 @media (min-width: 801px) {
 
@@ -81,6 +119,9 @@ body {
         display: flex !important;
         flex-direction: row !important;
         gap: 10px !important;
+    }
+    .price {
+        font-size: 20px !important;
     }
 
     .sort-buttons a {
