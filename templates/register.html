@@ -5,7 +5,8 @@
 
 <div class="card">
 
-<h2>빠른 매물 등록</h2>
+<div class="section-title">빠른 매물등록</div>
+
 
 <form method="POST">
 <input type="hidden" name="form_type" value="quick">
@@ -29,7 +30,8 @@ placeholder="예시:
 
 <div class="card" style="margin-top:30px;">
 
-<h2>엑셀 최신화 업로드</h2>
+<div class="section-title">엑셀 최신화 업로드</div>
+
 
 <form method="POST" enctype="multipart/form-data">
 <input type="hidden" name="form_type" value="excel">
@@ -66,11 +68,42 @@ placeholder="예시:
 
 textarea {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     border-radius: 10px;
     border: 1px solid #ccc;
-    font-size: 14px;
+    font-size: 15px;
+    box-sizing: border-box;
+    resize: vertical;
 }
+
+
+.section-title {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: linear-gradient(to right, #eef4ff, transparent);
+    border-left: 8px solid #2d7ff9;
+    letter-spacing: -0.6px;
+}
+
+.card form {
+    width: 100%;
+}
+
+.card {
+    overflow: hidden;
+}
+
+@media (max-width: 600px) {
+    .section-title {
+        font-size: 24px;
+        padding: 10px 12px;
+    }
+}
+
+
 </style>
 
 {% endblock %}
