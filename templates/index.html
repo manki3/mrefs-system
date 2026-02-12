@@ -55,7 +55,7 @@
 
 {% for p in properties %}
 
-<div class="card property-card">
+<div class="card property-card {{ p.property_type }}">
 
     <div class="card-row">
         <div class="card-left">
@@ -149,6 +149,23 @@
 .property-card{
     margin-top:14px;
 }
+
+
+/* 기본 (사무실) */
+.property-card {
+    background: #ffffff;
+}
+
+/* 상가 - 연한 녹색 */
+.property-card.상가 {
+    background: #e8f7ec;
+}
+
+/* 주거용 - 연한 주황 */
+.property-card.주거용 {
+    background: #fff3e6;
+}
+
 
 </style>
 

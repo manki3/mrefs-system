@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if request.args.get('updated') %}
+<div id="update-toast" class="update-toast">
+    최신화 완료되었습니다 👍
+</div>
+{% endif %}
+
+
+
 <h1>매물등록 시스템</h1>
 
 <div class="card">
@@ -104,6 +112,42 @@ textarea {
 }
 
 
+<style>
+.update-toast{
+    position:fixed;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    background:#2d7ff9;
+    color:white;
+    padding:12px 22px;
+    border-radius:12px;
+    font-weight:600;
+    box-shadow:0 8px 20px rgba(0,0,0,0.15);
+    z-index:9999;
+    opacity:0;
+    animation:fadein 0.3s forwards;
+}
+
+@keyframes fadein{
+    to{ opacity:1; }
+}
 </style>
+
+
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+    const toast = document.getElementById("update-toast");
+    if(toast){
+        setTimeout(()=>{
+            toast.style.transition="opacity 0.5s";
+            toast.style.opacity="0";
+            setTimeout(()=> toast.remove(),500);
+        },3000);
+    }
+});
+</script>
 
 {% endblock %}

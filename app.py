@@ -240,24 +240,41 @@ def clean_building_name(raw):
 
 
 def parse_price_auto(raw):
-    
-    price = str(raw)
 
-    price = price.replace(",", "")
-    price = price.replace(" ", "")
+    if raw is None:
+        return "월세", 0, 0, 0
 
+    price = str(raw).strip()
+    price = price.replace(",", "").replace(" ", "")
+
+    # -------- 월세 --------
     if "/" in price:
-        try:
-            deposit, rent = price.split("/")
-            return "월세", int(deposit), int(rent), 0
-        except:
-            return "월세", 0, 0, 0
+        left, right = price.split("/", 1)
 
-    try:
-        sale = int(float(price))
-        return "매매", 0, 0, sale
-    except:
-        return "매매", 0, 0, 0
+        def parse_money(text):
+            if "억" in text:
+                parts = text.split("억")
+                eok = int(re.findall(r"\d+", parts[0])[0]) * 10000
+                rest = int(re.findall(r"\d+", parts[1])[0]) if re.findall(r"\d+", parts[1]) else 0
+                return eok + rest
+            nums = re.findall(r"\d+", text)
+            return int(nums[0]) if nums else 0
+
+        deposit = parse_money(left)
+        rent = parse_money(right)
+
+        return "월세", deposit, rent, 0
+
+    # -------- 매매 --------
+    numbers = re.findall(r"\d+", price)
+    if numbers:
+        full_number = "".join(numbers)   # ← 핵심 (전부 이어붙임)
+        return "매매", 0, 0, int(full_number)
+
+    return "월세", 0, 0, 0
+
+
+
     
 
 
@@ -569,12 +586,13 @@ def register():
         db.session.commit()
 
         return redirect(url_for("register"))
-
-
-    # -------- 엑셀 최신화 --------
+    
+        # -------- 엑셀 최신화 --------
     if request.method == "POST" and request.form.get("form_type") == "excel":
 
-        file = request.files["file"]
+        file = request.files.get("file")
+        if not file:
+            return "파일이 전달되지 않았습니다"
 
         filename = file.filename.lower()
 
@@ -584,36 +602,75 @@ def register():
             df = pd.read_excel(file, dtype=str)
 
         df.columns = df.columns.str.strip()
+        print("=====엑셀 컬럼 목록=====")
+        print(list(df.columns))
+
+
+        def find_col(keyword):
+            for c in df.columns:
+                if keyword in c:
+                    return c
+            return None
+
+        col_address = find_col("주소")
+        col_price = find_col("매물")
+        col_exclusive = find_col("전용")
+        col_contract = find_col("계약")
+        col_type = find_col("종류")
+
+        if not col_address:
+            return "주소 컬럼을 찾지 못했습니다"
 
         Property.query.delete()
         db.session.commit()
 
-        for index, row in df.iterrows():
+        for _, row in df.iterrows():
+        
 
-            building = clean_building_name(row["상세주소"])
 
-            category, deposit, rent, sale = parse_price_auto(row["매물가"])
+            building = clean_building_name(row.get(col_address, ""))
+
+            deal_type = str(row.get("거래종류", "")).strip()
+            price_raw = str(row.get("매물가", "")).replace(",", "").strip()
+
+            deposit = 0
+            rent = 0
+            sale = 0
+
+            if deal_type == "월세":
+                if "/" in price_raw:
+                    left, right = price_raw.split("/", 1)
+                    deposit = int(left) if left.isdigit() else 0
+                    rent = int(right) if right.isdigit() else 0
+
+            elif deal_type == "매매":
+                sale = int(price_raw) if price_raw.isdigit() else 0
 
             p = Property(
                 building_name=building,
-                exclusive_area=to_pyung(row["전용면적"]),
-                contract_area=to_pyung(row["공급/계약면적"]),
+                exclusive_area=to_pyung(row.get(col_exclusive, 0)),
+                contract_area=to_pyung(row.get(col_contract, 0)),
                 deposit=deposit,
                 rent=rent,
                 sale_price=sale,
-                category=category,
-                property_type=convert_property_type(row["매물종류"])
+                category=deal_type,
+                property_type=convert_property_type(row.get(col_type, ""))
             )
 
             db.session.add(p)
 
-        db.session.commit()
+            db.session.commit()
 
-        log = UploadLog(upload_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        db.session.add(log)
-        db.session.commit()
 
-        return redirect(url_for("register"))
+
+        return redirect(url_for("register", updated=1))
+
+
+    # ===== GET 진입시 화면 표시 =====
+    last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
+    upload_time = last_upload.upload_time if last_upload else "-"
+
+    properties = Property.query.order_by(Property.id.desc()).limit(50).all()
 
     total_count = Property.query.count()
     rent_count = Property.query.filter_by(category="월세").count()
@@ -621,10 +678,18 @@ def register():
 
     return render_template(
         "register.html",
+        properties=properties,
+        upload_time=upload_time,
         total_count=total_count,
         rent_count=rent_count,
         sale_count=sale_count
     )
+
+
+
+
+   
+
 
 
 
@@ -856,5 +921,6 @@ def api_delete_memo(id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
 
