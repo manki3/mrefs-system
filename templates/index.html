@@ -90,4 +90,68 @@
 
 </div>
 
+
+<style>
+
+/* ===== 필터 영역 ===== */
+
+.filter-row{
+    margin-bottom:12px;
+    font-size:14px;
+}
+
+.filter-row select{
+    margin-left:8px;
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid #d9dee7;
+    background:#fff;
+    font-size:14px;
+    transition:0.15s;
+}
+
+.filter-row select:focus{
+    outline:none;
+    border-color:#2d7ff9;
+    box-shadow:0 0 0 2px rgba(45,127,249,0.15);
+}
+
+/* ===== 정렬 버튼 영역 ===== */
+
+.sort-buttons{
+    margin-top:14px;
+    padding-top:8px;
+    border-top:1px solid #eef1f5;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+.sort-buttons a{
+    text-decoration:none;
+    color:#333;
+    background:#f3f5f9;
+    padding:7px 12px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    transition:0.15s;
+}
+
+.sort-buttons a:hover{
+    background:#e4ecff;
+    color:#2d7ff9;
+    transform:translateY(-1px);
+}
+
+/* ===== 카드 간격 ===== */
+
+.property-card{
+    margin-top:14px;
+}
+
+</style>
+
+
+
 {% endblock %}
