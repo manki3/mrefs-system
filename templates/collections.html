@@ -1,43 +1,151 @@
 {% extends "base.html" %}
-
 {% block content %}
 
-<h1>내 매물 리스트 관리</h1>
+<div class="section-title">내 매물리스트 관리</div>
 
-<div style="margin-bottom:10px;">
-    <a href="/" class="big-btn home-btn">홈으로 가기</a>
-</div>
-
-<hr>
-
-<h3>새 리스트 만들기</h3>
-
-<form method="POST" action="/collections/new">
-    <input type="text" name="title" placeholder="리스트 제목 입력">
-    <button type="submit">생성</button>
-</form>
-
-<hr>
-
-<h3>생성된 리스트</h3>
-
-<table border="1" cellpadding="5">
-<tr>
-    <th>리스트 제목</th>
-    <th>관리</th>
-</tr>
+<div class="list-container">
 
 {% for c in lists %}
-<tr>
-    <td>
-        <a href="/collections/{{ c.id }}">{{ c.title }}</a>
-    </td>
-    <td>
-        <a href="/collections/delete/{{ c.id }}">삭제</a>
-    </td>
-</tr>
+<div class="list-card" onclick="location.href='/collections/{{ c.id }}'">
+
+    <div class="list-info">
+        <div class="list-title">{{ c.title }}</div>
+        <div class="list-date">생성일 {{ c.created_at }}</div>
+    </div>
+
+    <div class="list-actions">
+        <a href="/collections/delete/{{ c.id }}"
+           class="delete-btn"
+           onclick="event.stopPropagation(); return confirm('리스트를 삭제할까요?')">
+           삭제
+        </a>
+    </div>
+
+</div>
+
 {% endfor %}
 
-</table>
+</div>
+
+<div class="new-list-card">
+
+    <div class="new-title">새 리스트 만들기</div>
+
+    <form method="POST" action="/collections/new" class="new-form">
+        <input type="text" name="title" placeholder="리스트 이름 입력" required>
+        <button type="submit">생성</button>
+    </form>
+
+</div>
+
+
+
+<style>
+
+/* ===== 헤더 ===== */
+.section-title {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: linear-gradient(to right, #eef4ff, transparent);
+    border-left: 8px solid #2d7ff9;
+}
+
+/* ===== 리스트 카드 ===== */
+.list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.list-card {
+    background: white;
+    padding: 18px 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-title {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.list-date {
+    font-size: 13px;
+    color: #777;
+    margin-top: 4px;
+}
+
+.list-actions {
+    display: flex;
+    gap: 10px;
+}
+
+
+.delete-btn {
+    background: #f1f1f1;
+    color: #555;
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+/* ===== 새 리스트 ===== */
+.new-list-card {
+    margin-top: 28px;
+    background: #fafafa;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px dashed #ddd;
+}
+
+.new-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.new-form {
+    display: flex;
+    gap: 10px;
+}
+
+.new-form input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+}
+
+.new-form button {
+    background: #2d7ff9;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+
+.list-card {
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.list-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+}
+
+
+
+</style>
 
 {% endblock %}

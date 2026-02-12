@@ -3,7 +3,23 @@
 {% block content %}
 
 
-<h1>매물 검색</h1>
+<div class="section-title main">
+    <div class="title-flex">
+
+        <div class="title-left">
+            <div class="title-main">매물 검색</div>
+            <div class="section-sub">조건으로 빠르게 찾기</div>
+        </div>
+
+        <div class="title-right">
+            <div class="meta">📅 {{ upload_time }}</div>
+            <div class="meta">📦 {{ properties|length }}개 매물</div>
+        </div>
+
+    </div>
+</div>
+
+
 
 <div class="search-main-card">
 
@@ -125,31 +141,32 @@
 
 <div class="sort-buttons" style="margin-bottom:15px;">
 
-    <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=area_asc">
-        평수 ▲
-    </a>
-
     <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=area_desc">
-        평수 ▼
+        큰평수
     </a>
 
-    <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=rent_asc">
-        월세 ▲
+    <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=area_asc">
+        작은평수
     </a>
 
     <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=rent_desc">
-        월세 ▼
+        월세높은순
     </a>
 
-    <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=sale_asc">
-        매매가 ▲
+    <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=rent_asc">
+        월세낮은순
     </a>
 
     <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=sale_desc">
-        매매가 ▼
+        매매높은순
+    </a>
+
+    <a href="?{% for k,v in request.args.items() if k != 'sort' %}{{k}}={{v}}&{% endfor %}sort=sale_asc">
+        매매낮은순
     </a>
 
 </div>
+
 
 
 </form>
@@ -515,6 +532,66 @@
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     margin-top: 30px;
+}
+
+
+.section-title.main{
+    font-size:30px;
+    font-weight:900;
+    margin:14px 0 18px 0;
+    padding:12px 16px;
+    border-radius:12px;
+    background:linear-gradient(to right,#eef4ff,transparent);
+    border-left:8px solid #2d7ff9;
+    letter-spacing:-0.3px;
+}
+
+.section-sub{
+    font-size:13px;
+    font-weight:500;
+    color:#6b7280;
+    margin-top:4px;
+}
+
+
+.search-info{
+    display:flex;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.info-item{
+    background:#f3f6ff;
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:13px;
+    color:#4a5aa3;
+    font-weight:600;
+}
+
+
+.title-flex{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.title-main{
+    font-size:30px;
+    font-weight:900;
+    letter-spacing:-0.3px;
+}
+
+.title-right{
+    text-align:right;
+    font-size:13px;
+    font-weight:600;
+    color:#4b5563;
+    line-height:1.5;
+}
+
+.meta{
+    white-space:nowrap;
 }
 
 

@@ -299,8 +299,8 @@ select {
     top: 50%;
     transform: translate(-50%, -50%);
 
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
 
     background: #ffd9a8;
@@ -310,7 +310,8 @@ select {
     align-items: center;
     justify-content: center;
 
-    font-size: 26px;
+    font-size: 30px;
+
     text-decoration: none;
 
     box-shadow: 0 10px 25px rgba(255,150,60,0.35);
@@ -337,6 +338,24 @@ select {
     100% { transform: translate(-50%, -50%); }
 }
 
+/* ===== 매물 카드 인터랙션 ===== */
+
+.property-card {
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    cursor: pointer;
+}
+
+.property-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 22px rgba(0,0,0,0.14);
+}
+
+/* 리스트 상세 제거 버튼 카드도 같이 움직이게 */
+.detail-row:hover .action-card {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 22px rgba(0,0,0,0.12);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
 
 
 

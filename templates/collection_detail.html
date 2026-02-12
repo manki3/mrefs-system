@@ -1,109 +1,299 @@
-<h1>{{ collection.title }}</h1>
+{% extends "base.html" %}
+{% block content %}
 
-<div style="margin-bottom:10px;">
-    <a href="/collections">리스트 목록으로</a> |
-    <a href="/">홈으로 가기</a>
-</div>
+<div class="section-title">{{ collection.title }}</div>
 
-<hr>
+<div class="memo-card">
 
-<h3>담긴 매물 목록 (드래그로 순서 변경 가능)</h3>
+    <div id="memo-view" {% if not collection.memo %}style="display:none"{% endif %}>
+        <div class="memo-text" id="memo-text">{{ collection.memo }}</div>
+        <div class="memo-actions">
+            <button onclick="editMemo()">수정</button>
+            <button onclick="deleteMemo()">삭제</button>
+        </div>
+    </div>
 
-<div style="margin-bottom:15px;">
-
-정렬 :
-
-<a href="?sort=name">건물이름순</a> |
-
-<a href="?sort=area_desc">평수 큰순</a> |
-<a href="?sort=area_asc">평수 작은순</a> |
-
-<a href="?sort=rent_desc">월세 높은순</a> |
-<a href="?sort=rent_asc">월세 낮은순</a>
-
-</div>
-
-
-<form method="POST" action="{{ url_for('remove_multiple', collection_id=collection.id) }}">
-
-<div style="margin-bottom:10px;">
-
-    <button type="submit" onclick="return confirm('선택한 매물을 모두 삭제하시겠습니까?');">
-        선택 삭제
-    </button>
-
-    <a href="{{ url_for('clear_collection', collection_id=collection.id) }}"
-       onclick="return confirm('이 리스트의 매물을 전부 삭제하시겠습니까?');"
-       style="margin-left:10px; color:white; background:#d9534f; padding:6px 12px; text-decoration:none; border-radius:4px;">
-       모두 삭제
-    </a>
+    <div id="memo-edit" {% if collection.memo %}style="display:none"{% endif %}>
+        <textarea id="memo-input" maxlength="200"
+        placeholder="메모를 입력하세요 (최대 200자)">{{ collection.memo }}</textarea>
+        <div class="memo-actions">
+            <button onclick="saveMemo()">저장</button>
+            <button onclick="cancelMemo()">취소</button>
+        </div>
+    </div>
 
 </div>
 
 
-<table border="1" cellpadding="5">
+<div class="sort-bar">
+    <a href="?sort=name">이름순</a>
+    <a href="?sort=area_desc">큰평수</a>
+    <a href="?sort=area_asc">작은평수</a>
+    <a href="?sort=rent_desc">월세높은순</a>
+    <a href="?sort=rent_asc">월세낮은순</a>
+</div>
 
-<tr>
-    <th>선택</th>
-    <th>이동</th>
-    <th>건물명</th>
-    <th>전용(평)</th>
-    <th>보증금</th>
-    <th>월세</th>
-    <th>매매가</th>
-</tr>
+<div class="list-detail-container">
 
-<tbody id="sortable">
 {% for p in properties %}
-<tr data-id="{{ p.collection_item_id }}">
-    <td>
-        <input type="checkbox" name="delete_ids" value="{{ p.id }}">
-    </td>
-    <td style="cursor:move;">⇅</td>
-    <td>{{ p.building_name }}</td>
-    <td>{{ p.exclusive_area }}</td>
-    <td>{{ p.deposit }}</td>
-    <td>{{ p.rent }}</td>
-    <td>{{ p.sale_price }}</td>
-</tr>
+
+<div class="detail-row">
+
+    <div class="card property-card">
+
+        <div class="property-header">
+            <div class="property-title">{{ p.building_name }}</div>
+
+            <div class="property-center">
+                전용 {{ p.exclusive_area }}평
+            </div>
+
+            <div class="property-price">
+                {% if p.deposit and p.rent %}
+                    임대 {{ p.deposit }}/{{ p.rent }}
+                {% else %}
+                    매매 {{ p.sale_price }}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="property-type">
+            종류 : {{ p.property_type }}
+        </div>
+
+    </div>
+
+    <div class="card action-card">
+        <a href="/collections/remove/{{ collection.id }}/{{ p.id }}"
+           class="remove-btn"
+           onclick="return confirm('리스트에서 제거할까요?')">
+           제거
+        </a>
+    </div>
+
+</div>
+
 {% endfor %}
-</tbody>
 
-</table>
-
-</form>
+</div>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+<style>
+
+/* ===== 헤더 ===== */
+.section-title {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: linear-gradient(to right, #eef4ff, transparent);
+    border-left: 8px solid #2d7ff9;
+}
+
+/* ===== 정렬바 ===== */
+.sort-bar {
+    margin-bottom: 18px;
+}
+
+.sort-bar a {
+    margin-right: 8px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    background: #f1f3f7;
+    text-decoration: none;
+    color: #333;
+    font-weight: 600;
+    transition: 0.15s;
+}
+
+.sort-bar a:hover {
+    background: #e4ecff;
+    color: #2d7ff9;
+}
+
+/* ===== 카드 레이아웃 ===== */
+.detail-row {
+    display: flex;
+    gap: 15px;
+    align-items: stretch;
+    margin-bottom: 15px;
+}
+
+.property-card {
+    flex: 3;
+    padding: 20px 22px;
+}
+
+.action-card {
+    flex: 0.5;
+    min-width: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* ===== 카드 내부 ===== */
+.property-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.property-title {
+    font-size: 22px;
+    font-weight: bold;
+    line-height: 1.4;
+}
+
+.property-center {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.property-price {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2d7ff9;
+}
+
+.property-type {
+    color: #666;
+    font-size: 14px;
+}
+
+/* ===== 제거 버튼 ===== */
+.remove-btn {
+    background: #ff6b6b;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: 0.15s;
+}
+
+.remove-btn:hover {
+    background: #ff5252;
+    transform: translateY(-1px);
+}
+
+
+.memo-card {
+    background: #fffbe9;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    border: 1px solid #f1e2b8;
+}
+
+.memo-text {
+    white-space: pre-wrap;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.memo-actions button {
+    margin-right: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #2d7ff9;
+    color: white;
+    cursor: pointer;
+}
+
+.memo-actions button:last-child {
+    background: #888;
+}
+
+.memo-card textarea {
+    width: 100%;
+    height: 80px;
+    resize: none;
+    border-radius: 8px;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+
+
+
+</style>
+
+
 
 <script>
 
-var el = document.getElementById('sortable');
 
-new Sortable(el, {
-    animation: 150,
-
-    onEnd: function () {
-
-        var rows = document.querySelectorAll("#sortable tr");
-
-        var data = [];
-
-        rows.forEach(function(row, index) {
-            data.push({
-                id: row.getAttribute("data-id"),
-                position: index
-            });
-        });
-
-        fetch("/collections/reorder", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
+function showToast(msg){
+    let t = document.getElementById("toast");
+    if(!t){
+        t=document.createElement("div");
+        t.id="toast";
+        t.style.position="fixed";
+        t.style.bottom="30px";
+        t.style.left="50%";
+        t.style.transform="translateX(-50%)";
+        t.style.background="#2d7ff9";
+        t.style.color="white";
+        t.style.padding="10px 18px";
+        t.style.borderRadius="10px";
+        t.style.boxShadow="0 8px 20px rgba(0,0,0,0.15)";
+        document.body.appendChild(t);
     }
-});
+    t.innerText=msg;
+    t.style.opacity="1";
+    setTimeout(()=>{t.style.opacity="0"},1200);
+}
+
+
+
+function editMemo(){
+    document.getElementById("memo-view").style.display="none";
+    document.getElementById("memo-edit").style.display="block";
+}
+
+function cancelMemo(){
+    document.getElementById("memo-view").style.display="block";
+    document.getElementById("memo-edit").style.display="none";
+}
+
+function saveMemo(){
+    const text = document.getElementById("memo-input").value;
+
+    fetch("/api/collection/{{ collection.id }}/memo",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json"},
+        body: JSON.stringify({memo:text})
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        document.getElementById("memo-text").innerText=data.memo;
+        cancelMemo();
+        showToast("메모 저장됨");
+
+    });
+}
+
+function deleteMemo(){
+    if(!confirm("메모 삭제할까요?")) return;
+
+    fetch("/api/collection/{{ collection.id }}/memo",{method:"DELETE"})
+    .then(()=>{
+        document.getElementById("memo-view").style.display="none";
+        document.getElementById("memo-edit").style.display="block";
+        document.getElementById("memo-input").value="";
+        showToast("메모 삭제됨");
+
+    });
+}
 
 </script>
+
+{% endblock %}

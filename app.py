@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import case
+
 import pandas as pd
 import re
 from datetime import datetime
@@ -55,7 +57,9 @@ class UploadLog(db.Model):
 class Collection(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200))
+    memo = db.Column(db.String(200))
     created_at = db.Column(db.String(50))
+
 
 
 class CollectionItem(db.Model):
@@ -460,17 +464,30 @@ def search():
     if max_sale:
         query = query.filter(Property.sale_price <= int(max_sale))
 
+        # -------- 정렬 로직 --------
     if sort == "rent_asc":
-        query = query.order_by(Property.rent.asc())
+        query = query.order_by(
+            case((Property.category == "월세", 0), else_=1),
+            Property.rent.asc()
+        )
 
     elif sort == "rent_desc":
-        query = query.order_by(Property.rent.desc())
+        query = query.order_by(
+            case((Property.category == "월세", 0), else_=1),
+            Property.rent.desc()
+        )
 
     elif sort == "sale_asc":
-        query = query.order_by(Property.sale_price.asc())
+        query = query.order_by(
+            case((Property.category == "매매", 0), else_=1),
+            Property.sale_price.asc()
+        )
 
     elif sort == "sale_desc":
-        query = query.order_by(Property.sale_price.desc())
+        query = query.order_by(
+            case((Property.category == "매매", 0), else_=1),
+            Property.sale_price.desc()
+        )
 
     elif sort == "area_asc":
         query = query.order_by(Property.exclusive_area.asc())
@@ -478,7 +495,12 @@ def search():
     elif sort == "area_desc":
         query = query.order_by(Property.exclusive_area.desc())
 
+
+
     results = query.all()
+    last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
+    upload_time = last_upload.upload_time if last_upload else "-"
+
 
     collections = Collection.query.all()
 
@@ -489,12 +511,14 @@ def search():
 
 
     return render_template(
-        "search.html",
-        properties=results,
-        collections=collections,
-        existing_pairs=existing_pairs,
-        format_sale_price_korean=format_sale_price_korean
-    )
+    "search.html",
+    properties=results,
+    collections=collections,
+    existing_pairs=existing_pairs,
+    format_sale_price_korean=format_sale_price_korean,
+    upload_time=upload_time
+)
+
 
 
 
@@ -800,6 +824,34 @@ def add_to_collection():
         db.session.commit()
 
     return "", 204
+
+
+@app.route("/api/collection/<int:id>/memo", methods=["POST"])
+@login_required
+def api_save_memo(id):
+
+    collection = Collection.query.get_or_404(id)
+
+    data = request.get_json()
+    memo = (data.get("memo") or "")[:200]
+
+    collection.memo = memo
+    db.session.commit()
+
+    return jsonify({"result": "ok", "memo": memo})
+
+
+@app.route("/api/collection/<int:id>/memo", methods=["DELETE"])
+@login_required
+def api_delete_memo(id):
+
+    collection = Collection.query.get_or_404(id)
+
+    collection.memo = None
+    db.session.commit()
+
+    return jsonify({"result": "ok"})
+
 
 
 
