@@ -14,6 +14,75 @@
 
 <style>
 
+
+/* ===== 공통 기본 스타일 ===== */
+
+body {
+    font-size: 14px;
+}
+
+/* ===== PC 전용 스타일 ===== */
+@media (min-width: 801px) {
+
+    .menu {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .property-card .title {
+        font-size: 16px;
+    }
+
+    .property-card .detail {
+        font-size: 13px;
+    }
+
+    .property-card .price {
+        font-size: 15px;
+    }
+
+}
+
+/* ===== 모바일 전용 스타일 ===== */
+@media (max-width: 800px) {
+
+    body {
+        font-size: 16px;
+    }
+
+    .menu {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .menu a {
+        font-size: 16px;
+        padding: 16px 10px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+
+    .property-card .title {
+        font-size: 18px;
+    }
+
+    .property-card .detail {
+        font-size: 15px;
+    }
+
+    .property-card .price {
+        font-size: 17px;
+    }
+
+    select {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+}
+
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
@@ -38,23 +107,39 @@ h2 {
     margin: 10px 0;
 }
 
+
+h2 {
+    font-size: 16px;
+    margin: 10px 0;
+}
+
+/* ===== 여기부터 추가 ===== */
+
 .menu {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 15px;
 }
 
 .menu a {
     text-align: center;
-    padding: 12px 6px;
+    padding: 14px 10px;
     background: #2d7ff9;
     color: white;
-    border-radius: 8px;
+    border-radius: 10px;
     text-decoration: none;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
 }
+
+.menu a:hover {
+    opacity: 0.9;
+}
+
+/* ===== 여기까지 추가 ===== */
+
+
 
 .card {
     background: white;
@@ -144,17 +229,6 @@ select {
 
 <div class="container">
 
-<h1>MK 부동산 장부</h1>
-
-{% if not hide_menu %}
-<div class="menu">
-    <a href="/">홈</a>
-    <a href="/add">매물등록</a>
-    <a href="/excel_upload">엑셀업로드</a>
-</div>
-{% endif %}
-
-<hr>
 
 {% block content %}
 {% endblock %}
