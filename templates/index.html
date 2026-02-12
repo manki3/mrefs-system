@@ -2,6 +2,35 @@
 
 {% block content %}
 
+<style>
+.menu {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.menu a {
+    text-align: center;
+    padding: 14px 10px;
+    background: #2d7ff9;
+    color: white;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.menu a:hover {
+    opacity: 0.9;
+}
+
+@media (max-width: 600px) {
+    .menu {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
 
 
 <div class="container">
@@ -9,11 +38,11 @@
 <h1>부동산 장부 시스템</h1>
 
 <div class="menu">
-    <a href="/?mode=rent">월세 보기</a>
-    <a href="/?mode=sale">매매 보기</a>
-    <a href="/search">매물 검색</a>
-    <a href="{{ url_for('quick_add') }}">빠른등록</a>
-    <a href="/excel_upload">엑셀업로드</a>
+    <a href="/?mode=rent">월세</a>
+    <a href="/?mode=sale">매매</a>
+    <a href="/search">검색</a>
+    <a href="{{ url_for('quick_add') }}">매물등록</a>
+    <a href="/excel_upload">최신화</a>
     <a href="/collections">내 리스트</a>
 </div>
 
