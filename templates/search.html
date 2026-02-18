@@ -175,78 +175,58 @@
 
 {% for p in properties %}
 
-<div class="property-row">
+<div class="detail-row">
 
-    <div class="card property-card">
+    <!-- 매물 정보 카드 -->
+    <div class="card property-card {{ p.property_type }}">
+        <div class="card-left">
+            <div class="title">{{ p.building_name }}</div>
 
-        <div class="property-header">
-            <div class="property-title">{{ p.building_name }}</div>
-
-            <div class="property-center">
-                전용 {{ p.exclusive_area }}평
+            <div class="detail">
+                종류 : {{ p.property_type }}
             </div>
 
-            <div class="property-price">
-                {% if p.deposit and p.rent %}
-                    임대 {{ p.deposit }}/{{ p.rent }}
-                {% else %}
+            <div class="detail detail-line">
+                전용 : {{ p.exclusive_area }}평 /
+                계약 : {{ p.contract_area }}평
+
+                <span class="price-inline">
+                {% if p.category == "매매" %}
                     매매 {{ format_sale_price_korean(p.sale_price) }}
+                {% else %}
+                    임대 {{ p.deposit }}/{{ p.rent }}
                 {% endif %}
+                </span>
             </div>
         </div>
-
-        <div class="property-type">
-            종류 : {{ p.property_type }}
-        </div>
-
     </div>
 
-    <div class="card action-card">
-
-<form method="POST" action="{{ url_for('add_to_collection') }}" class="add-form ajax-form">
-
+    <!-- 리스트 담기 카드 -->
+    <form method="POST" action="/add_to_collection" class="ajax-form card action-card">
     <input type="hidden" name="property_id" value="{{ p.id }}">
 
-    {% for key, value in request.args.items() %}
-        <input type="hidden" name="{{ key }}" value="{{ value }}">
-    {% endfor %}
-
- <select name="collection_id" class="collection-select">
-    {% for c in collections %}
-        <option value="{{ c.id }}"
-            {% if (p.id, c.id) in existing_pairs %}data-added="true"{% endif %}>
-            {{ c.title }}
-        </option>
-    {% endfor %}
-</select>
-
+    <select name="collection_id" class="collection-select">
+        {% for c in collections %}
+            <option value="{{ c.id }}"
+                {% if (p.id, c.id) in existing_pairs %}data-added="true"{% endif %}>
+                {{ c.title }}
+            </option>
+        {% endfor %}
+    </select>
 
     <button type="submit" class="add-btn">리스트 담기</button>
-
 </form>
 
 
-
-
-    </div>
+    
 
 </div>
-
-
-
-
-
-
-
-
 
 {% endfor %}
 
 
 </div>
 </div>
-
-{% endif %}
 
 
 <style>
@@ -723,6 +703,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
 </script>
+
+
+{% endif %}
 
 
 {% endblock %}

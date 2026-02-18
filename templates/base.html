@@ -13,6 +13,7 @@
     <meta property="og:type" content="website">
 
 <style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 
 /* ===== PC 기준 상단 로고 스타일 개선 ===== */
@@ -89,18 +90,21 @@ body {
 /* 매물 카드 레이아웃 */
 .card-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 18px;
 }
+
 
 .card-left {
     flex: 1;
 }
 
 .card-right {
+    margin-left: auto;
     text-align: right;
-    min-width: 160px;
+    white-space: nowrap;
 }
+
 
 /* 가격을 가로 한 줄로 */
 .price {
@@ -112,6 +116,10 @@ body {
     color: #2d7ff9;
     font-size: 16px;
 }
+
+
+/* ===== 매물 타입 색상 공통 ===== */
+
 
 
 
@@ -145,7 +153,7 @@ body {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     padding: 0;
     background: #f5f6f8;
@@ -340,21 +348,326 @@ select {
 
 /* ===== 매물 카드 인터랙션 ===== */
 
-.property-card {
+.property-card{
+    flex:1;
+    display:flex;
     transition: transform 0.18s ease, box-shadow 0.18s ease;
     cursor: pointer;
 }
+
+.property-card .card-left{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+
 
 .property-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 22px rgba(0,0,0,0.14);
 }
 
-/* 리스트 상세 제거 버튼 카드도 같이 움직이게 */
-.detail-row:hover .action-card {
+/* 리스트담기 카드 개별 호버 */
+.action-card{
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.15s ease;
+}
+
+.action-card:hover{
     transform: translateY(-4px);
     box-shadow: 0 10px 22px rgba(0,0,0,0.12);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    background:#f5f9ff;
+}
+
+
+
+/* ===== 매물 카드 타입 색상 ===== */
+
+/* 기본 (사무실) */
+.property-card {
+    background: #ffffff;
+}
+
+/* 상가 - 연한 녹색 */
+.property-card.상가 {
+    background: #e8f7ec;
+}
+
+/* 주거용 - 연한 주황 */
+.property-card.주거용 {
+    background: #fff3e6;
+}
+
+
+
+.detail-line{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+
+.price-inline{
+    font-weight:900;
+    color:#2d7ff9;
+    white-space:nowrap;
+    margin-left:14px;
+    padding-left:14px;
+    border-left:2px solid #e5e7eb;
+
+    font-size:18px;
+    letter-spacing:0.2px;
+}
+
+
+
+
+/* ===== 2단 작업 레이아웃 ===== */
+
+.main-2col{
+    display:grid;
+    grid-template-columns: 1fr 260px;
+    gap:18px;
+    align-items:start;
+}
+
+.property-column{
+    min-width:0;
+}
+
+.side-panel{
+    position:sticky;
+    top:20px;
+}
+
+.side-box{
+    background:#ffffff;
+    border-radius:14px;
+    padding:16px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.08);
+}
+
+.side-title{
+    font-weight:800;
+    margin-bottom:10px;
+}
+
+.side-select{
+    width:100%;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #ddd;
+    margin-bottom:10px;
+}
+
+.side-btn{
+    width:100%;
+    height:42px;
+    border:none;
+    border-radius:10px;
+    background:#2d7ff9;
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+}
+
+/* 모바일에서는 다시 1열 */
+@media (max-width:900px){
+    .main-2col{
+        grid-template-columns:1fr;
+    }
+    .side-panel{
+        position:static;
+    }
+}
+
+
+
+/* 카드 + 액션카드 한줄 배치 */
+.detail-row{
+    display:flex;
+    gap:14px;
+    align-items:stretch;
+    margin-top:14px;
+}
+
+.detail-row > .card{
+    display:flex;
+}
+
+
+
+.action-card{
+    min-width:220px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:12px;
+    background:#f8fafc;
+    border-radius:12px;
+}
+
+
+/* 리스트 담기 카드 UI 완전 통일 */
+.action-card select{
+    width:100%;
+    height:44px;
+    padding:0 12px;
+    border-radius:10px;
+    border:1px solid #d0d5dd;
+    font-size:15px;
+    background:#fff;
+    box-sizing:border-box;
+    appearance:none;
+}
+
+.action-card button{
+    width:100%;
+    height:44px;
+    border:none;
+    border-radius:10px;
+    background:#2d7ff9;
+    color:white;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+
+/* 모바일 */
+@media (max-width:800px){
+    .detail-row{
+        flex-direction:column;
+    }
+}
+
+
+/* ===== 검색폼 세로 여백 압축 ===== */
+
+/* 카드 내부 여백 줄이기 */
+.search-card,
+.filter-card,
+.form-card{
+    padding:14px 16px !important;
+}
+
+/* 항목 블록 간격 */
+.search-card label,
+.filter-card label{
+    margin-bottom:4px;
+}
+
+/* 입력칸 간격 줄이기 */
+.search-card input,
+.search-card select{
+    margin-bottom:8px;
+}
+
+/* 조건 박스 내부 여백 */
+.condition-box{
+    padding:12px 14px !important;
+}
+
+/* 금액/면적 영역 간격 */
+.condition-row{
+    margin-bottom:6px;
+}
+
+/* 검색 버튼 위 공간 줄이기 */
+.search-submit{
+    margin-top:10px !important;
+}
+
+
+
+/* ===== 매물카드 높이를 액션카드 기준으로 통일 ===== */
+
+/* 한 줄 높이 기준을 action-card가 결정 */
+.detail-row{
+    align-items:stretch;
+}
+
+/* action-card 최소 높이 = 기준 높이 */
+.action-card{
+    min-height:96px;
+}
+
+/* 매물카드도 같은 높이로 확장 */
+.property-card{
+    height:100%;
+    display:flex;
+}
+
+/* 카드 내부 세로 정렬 */
+.property-card .card-left{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+
+
+/* ===============================
+   부동산 카드 타이포그래피 개선
+   =============================== */
+
+/* 건물명 (간판 느낌) */
+.property-card .title{
+    font-weight:800;
+    font-size:19px;
+    letter-spacing:-0.3px;
+    color:#111827;
+}
+
+/* 가격 — 서비스형 숫자 스타일 */
+.price-inline{
+    font-weight:800;
+    font-size:20px;
+    letter-spacing:-0.2px;
+    color:#2563eb;
+}
+
+.property-card .price{
+    font-weight:800;
+    font-size:21px;
+    letter-spacing:-0.2px;
+    color:#2563eb;
+}
+
+/* 보증금/월세 구분선 */
+.price-inline{
+    padding-left:14px;
+    margin-left:14px;
+    border-left:2px solid #e5e7eb;
+}
+
+/* 숫자 가독성 향상 */
+.price-inline,
+.property-card .price{
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* 전용/계약 면적 */
+.property-card .detail{
+    font-size:13px;
+    color:#6b7280;
+}
+
+/* 종류 텍스트 */
+.property-card .detail-line{
+    font-weight:500;
+}
+
+/* 월세 슬래시 강조 */
+.price-inline::before{
+    opacity:0.7;
+}
+
+/* 카드 가독성 미세 개선 */
+.property-card{
+    line-height:1.45;
 }
 
 

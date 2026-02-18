@@ -55,9 +55,10 @@
 
 {% for p in properties %}
 
-<div class="card property-card {{ p.property_type }}">
+<div class="detail-row">
 
-    <div class="card-row">
+    <!-- 매물 카드 -->
+    <div class="card property-card {{ p.property_type }}">
         <div class="card-left">
             <div class="title">{{ p.building_name }}</div>
 
@@ -65,30 +66,46 @@
                 종류 : {{ p.property_type }}
             </div>
 
-            <div class="detail">
+            <div class="detail detail-line">
                 전용 : {{ p.exclusive_area }}평 /
                 계약 : {{ p.contract_area }}평
+
+                <span class="price-inline">
+                {% if p.category == "매매" %}
+                    매매 {{ format_sale_price_korean(p.sale_price) }}
+                {% else %}
+                    임대 {{ p.deposit }}/{{ p.rent }}
+                {% endif %}
+                </span>
             </div>
-        </div>
-
-        <div class="card-right">
-            <div class="price">
-               {% if p.category == "매매" %}
-                   매매가 {{ format_sale_price_korean(p.sale_price) }}
-               {% else %}
-                   임대 {{ p.deposit }}/{{ p.rent }}
-               {% endif %}
-        </div>
-
         </div>
     </div>
 
-</div>
+    <!-- 우측 별도 카드 -->
+    <form method="POST" action="/add_to_collection" class="ajax-form card action-card">
+    <input type="hidden" name="property_id" value="{{ p.id }}">
 
+    <select name="collection_id" class="collection-select">
+        {% for c in collections %}
+            <option value="{{ c.id }}" 
+    {% if existing_pairs and (p.id, c.id) in existing_pairs %}data-added="true"{% endif %}>
+    {{ c.title }}
+</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="add-btn">
+리스트 담기
+</button>
+
+</form>
+
+
+</div>
 
 {% endfor %}
 
-</div>
+
 
 
 <style>
@@ -151,24 +168,81 @@
 }
 
 
-/* 기본 (사무실) */
-.property-card {
-    background: #ffffff;
-}
-
-/* 상가 - 연한 녹색 */
-.property-card.상가 {
-    background: #e8f7ec;
-}
-
-/* 주거용 - 연한 주황 */
-.property-card.주거용 {
-    background: #fff3e6;
-}
 
 
 </style>
 
+
+<script>
+document.querySelectorAll('.ajax-form').forEach(form => {
+
+    const btn = form.querySelector('.add-btn');
+    const select = form.querySelector('.collection-select');
+
+    function updateButtonState(){
+        const selectedOption = select.options[select.selectedIndex];
+
+        if(selectedOption.dataset.added === "true"){
+            btn.innerText = "이미 담김";
+            btn.style.background = "#ccc";
+            btn.disabled = true;
+        }else{
+            btn.innerText = "리스트 담기";
+            btn.style.background = "";
+            btn.disabled = false;
+        }
+    }
+
+    // 최초 로딩 시 상태 적용 ⭐ 핵심
+    updateButtonState();
+
+    // 선택 변경 시 상태 변경
+    select.addEventListener('change', updateButtonState);
+
+    // AJAX 제출
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        if(btn.disabled) return;
+
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => {
+            if (res.ok) {
+                const selectedOption = select.options[select.selectedIndex];
+                selectedOption.dataset.added = "true";
+                updateButtonState();
+            } else {
+                alert("담기에 실패했습니다.");
+            }
+        })
+        .catch(() => alert("네트워크 오류가 발생했습니다."));
+    });
+});
+
+
+// 셀렉트 박스 바꿀 때마다 버튼 상태 업데이트
+document.querySelectorAll('.collection-select').forEach(select => {
+    select.addEventListener('change', function() {
+        const btn = this.closest('form').querySelector('.add-btn');
+        const selectedOption = this.options[this.selectedIndex];
+        
+        if (selectedOption.dataset.added === "true") {
+            btn.innerText = "이미 담김";
+            btn.style.background = "#ccc";
+            btn.disabled = true;
+        } else {
+            btn.innerText = "리스트 담기";
+            btn.style.background = ""; // 기본색으로 복구
+            btn.disabled = false;
+        }
+    });
+});
+</script>
 
 
 {% endblock %}

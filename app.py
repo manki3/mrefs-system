@@ -412,14 +412,28 @@ def index():
 
     upload_time = last_upload.upload_time if last_upload else "업로드 기록 없음"
 
+
+
+
+    collections = Collection.query.all()
+
+    existing_pairs = set(
+        (item.property_id, item.collection_id)
+        for item in CollectionItem.query.all()
+    )
+
     return render_template(
         "index.html",
         properties=properties,
         mode=mode,
         format_sale_price_korean=format_sale_price_korean,
         upload_time=upload_time,
-        property_type=property_type
+        property_type=property_type,
+        collections=collections,
+        existing_pairs=existing_pairs
     )
+
+
 
 
 
@@ -654,7 +668,8 @@ def register():
                 rent=rent,
                 sale_price=sale,
                 category=deal_type,
-                property_type=convert_property_type(row.get(col_type, ""))
+                property_type=convert_property_type(row.get(col_type, "")).strip()
+
             )
 
             db.session.add(p)

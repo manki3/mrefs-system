@@ -57,19 +57,15 @@
             </div>
         </div>
 
-        <div class="property-type">
-            종류 : {{ p.property_type }}
-        </div>
 
     </div>
 
-    <div class="card action-card">
-        <a href="/collections/remove/{{ collection.id }}/{{ p.id }}"
-           class="remove-btn"
-           onclick="return confirm('리스트에서 제거할까요?')">
-           제거
-        </a>
-    </div>
+    <div class="remove-wrap">
+    <a href="{{ url_for('remove_from_collection', collection_id=collection.id, property_id=p.id) }}" class="remove-btn">
+        제거
+    </a>
+</div>
+
 
 </div>
 
@@ -124,15 +120,45 @@
 .property-card {
     flex: 3;
     padding: 20px 22px;
+    display:flex;
+    align-items:center;
+    height:100%;
 }
 
-.action-card {
-    flex: 0.5;
-    min-width: 110px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+
+/* 제거 버튼 영역 (카드 아님) */
+.remove-wrap{
+    display:flex;
+    align-items:stretch;
+    min-width:90px;
 }
+
+
+/* 버튼 */
+.remove-btn{
+    background:#ff6b6b;
+    color:white;
+    border-radius:10px;
+    text-decoration:none;
+    font-weight:bold;
+    white-space:nowrap;
+    transition:.15s;
+
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 16px;
+}
+
+
+.remove-btn:hover{
+    background:#ff5252;
+}
+
+
+
+
 
 
 /* ===== 카드 내부 ===== */
@@ -142,7 +168,11 @@
     align-items: center;
     gap: 10px;
     margin-bottom: 12px;
+    width:100%;
+    height:100%;
 }
+
+
 
 .property-title {
     font-size: 22px;
@@ -171,12 +201,21 @@
 .remove-btn {
     background: #ff6b6b;
     color: white;
-    padding: 12px 20px;
     border-radius: 12px;
     text-decoration: none;
     font-weight: bold;
     transition: 0.15s;
+
+    width:100%;
+    height:auto;
+    padding:12px 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
+
+
+
 
 .remove-btn:hover {
     background: #ff5252;
