@@ -775,6 +775,27 @@ select {
 }
 
 
+/* 모바일에서 돋보기 위치 상단으로 이동 (내 리스트 가림 방지) */
+@media (max-width:800px){
+
+  .search-fab{
+    top:42% !important;
+  }
+
+  /* 애니메이션 기준도 같이 수정해야 다시 내려오지 않음 */
+  @keyframes floaty-mobile {
+    0% { transform: translate(-50%, -42%); }
+    50% { transform: translate(-50%, -52%); }
+    100% { transform: translate(-50%, -42%); }
+  }
+
+  .search-fab{
+    animation: floaty-mobile 2.4s ease-in-out infinite !important;
+  }
+
+}
+
+
 
 </style>
 
