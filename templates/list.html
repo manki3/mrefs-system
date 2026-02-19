@@ -29,8 +29,10 @@
     </div>
 
     <div class="detail">
-        전용 : {{ p.exclusive_area }}평 / 계약 : {{ p.contract_area }}평
-    </div>
+    <span class="area-main">전용 {{ p.exclusive_area }}평</span>
+    <span class="area-sub"> / 계약 {{ p.contract_area }}평</span>
+</div>
+
 
     {% if mode == "sale" %}
         <div class="price">

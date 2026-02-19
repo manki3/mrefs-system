@@ -795,6 +795,21 @@ select {
 
 }
 
+/* 모바일 카드 정보 최소화 */
+@media (max-width:800px){
+
+  /* 계약면적 숨김 */
+  .area-sub{
+    display:none !important;
+  }
+
+  /* 종류/부가정보 숨김 */
+  .property-card .detail:not(:first-of-type){
+    display:none !important;
+  }
+
+}
+
 
 
 </style>
