@@ -122,7 +122,7 @@ placeholder="메모를 입력하세요 (최대 200자)">{{ collection.memo or ''
 
 .property-card {
     flex: 3;
-    padding: 20px 22px;
+    padding: 18px 18px;
     display:flex;
     align-items:center;
     height:100%;
@@ -264,12 +264,33 @@ placeholder="메모를 입력하세요 (최대 200자)">{{ collection.memo or ''
 }
 
 
-/* 📱 모바일에서는 컬렉션 목록 제거버튼 숨김 */
+/* 모바일에서는 카드 단일열 레이아웃 */
 @media (max-width:800px){
+
     .mobile-hide-remove{
-        display:none;
+        display:none !important;
+    }
+
+    .detail-row{
+        display:block;
+    }
+
+    .property-card{
+        width:100%;
+        box-sizing:border-box;
+    }
+
+}
+
+
+/* 모바일에서 카드 좌우 기준선을 상단 영역과 맞춤 */
+@media (max-width:800px){
+    .list-detail-container{
+        padding:0 10px;
+        box-sizing:border-box;
     }
 }
+
 
 @media (max-width:800px){
   .mobile-hide-remove{ display:none !important; }

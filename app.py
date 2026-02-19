@@ -1147,8 +1147,10 @@ def property_detail(id):
     images=images,
     collections=collections,
     existing_pairs=existing_pairs,
-    from_collection_id=from_collection_id
+    from_collection_id=from_collection_id,
+    format_sale_price_korean=format_sale_price_korean
 )
+
 
 
 
