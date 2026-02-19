@@ -154,6 +154,45 @@ document.addEventListener("DOMContentLoaded", function(){
     currentIndex = -1;
   });
 
+  /* ===== 모바일 스와이프 사진 넘기기 ===== */
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+
+modal.addEventListener("touchstart", function(e){
+  if(modal.style.display === "none") return;
+
+  const t = e.changedTouches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+}, {passive:true});
+
+modal.addEventListener("touchend", function(e){
+  if(modal.style.display === "none") return;
+
+  const t = e.changedTouches[0];
+  touchEndX = t.clientX;
+  touchEndY = t.clientY;
+
+  const dx = touchEndX - touchStartX;
+  const dy = touchEndY - touchStartY;
+
+  /* 세로 스크롤은 무시 (대각선 오작동 방지) */
+  if(Math.abs(dy) > Math.abs(dx)) return;
+
+  /* 최소 스와이프 거리 */
+  if(Math.abs(dx) < 40) return;
+
+  if(dx < 0){
+    showByIndex(currentIndex + 1);   // 왼쪽으로 밀면 다음
+  }else{
+    showByIndex(currentIndex - 1);   // 오른쪽으로 밀면 이전
+  }
+
+}, {passive:true});
+
+
   document.addEventListener("keydown", function(e){
     if(modal.style.display === "none") return;
     if(e.key === "Escape") modal.click();
