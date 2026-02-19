@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
+<div class="card has-mobile-panel-padding">
 
   <!-- 상단 한 줄 -->
   <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px;">
@@ -256,9 +256,74 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  const form = document.querySelector(".detail-ajax-form");
+  if(!form) return;
+
+  const select = form.querySelector(".detail-collection-select");
+  const btn = form.querySelector(".detail-add-btn");
+
+  function updateButton(){
+    const opt = select.options[select.selectedIndex];
+    if(opt.dataset.added === "true"){
+      btn.disabled = true;
+      btn.innerText = "이미 담김";
+      btn.style.background = "#cbd5e1";
+    }else{
+      btn.disabled = false;
+      btn.innerText = "리스트 담기";
+      btn.style.background = "";
+    }
+  }
+
+  updateButton();
+  select.addEventListener("change", updateButton);
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    if(btn.disabled) return;
+
+    fetch(form.action, { method:"POST", body:new FormData(form) })
+      .then(r=>{
+        if(r.status === 204){
+          select.options[select.selectedIndex].dataset.added = "true";
+          updateButton();
+        }else{
+          alert("담기에 실패했습니다.");
+        }
+      })
+      .catch(()=> alert("네트워크 오류가 발생했습니다."));
+  });
+
+});
+</script>
+
+
 
 
 </div>
+
+<!-- ✅ 모바일 상세 하단 고정: 리스트 담기 패널 -->
+<div class="mobile-add-panel" onclick="event.stopPropagation();">
+  <form method="POST" action="/add_to_collection" class="detail-ajax-form">
+    <input type="hidden" name="property_id" value="{{ p.id }}">
+
+    <select name="collection_id" class="detail-collection-select">
+      {% for c in collections %}
+        <option value="{{ c.id }}"
+          {% if (p.id, c.id) in existing_pairs %}data-added="true"{% endif %}>
+          {{ c.title }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="detail-add-btn">리스트 담기</button>
+  </form>
+</div>
+
+
 
 
 <style>
@@ -401,6 +466,57 @@ document.addEventListener("DOMContentLoaded", function(){
   background:#ffc9c9;
   cursor:not-allowed;
 }
+
+
+/* ✅ 하단 패널이 내용 가리지 않게 */
+.has-mobile-panel-padding{
+  padding-bottom:88px;
+}
+
+/* ✅ 모바일 상세페이지 하단 고정 패널 */
+.mobile-add-panel{
+  position:fixed;
+  left:0; right:0; bottom:0;
+  background:#fff;
+  border-top:1px solid #e5e7eb;
+  padding:12px;
+  box-shadow:0 -10px 22px rgba(0,0,0,0.10);
+  z-index:9999;
+}
+
+.mobile-add-panel .detail-ajax-form{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.mobile-add-panel .detail-collection-select{
+  flex:1;
+  height:46px;
+  border-radius:12px;
+  padding:0 12px;
+  border:1px solid #d1d5db;
+  background:#fff;
+  font-size:16px;
+}
+
+.mobile-add-panel .detail-add-btn{
+  width:120px;
+  height:46px;
+  border:none;
+  border-radius:12px;
+  background:#2d7ff9;
+  color:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+
+/* ✅ PC에서는 패널 숨김 + 패딩 제거 */
+@media (min-width:801px){
+  .mobile-add-panel{ display:none; }
+  .has-mobile-panel-padding{ padding-bottom:0; }
+}
+
 
 </style>
 

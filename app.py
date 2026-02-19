@@ -1127,12 +1127,23 @@ def property_detail(id):
 
     images = PropertyImage.query.filter_by(property_id=id).order_by(PropertyImage.id.desc()).all()
 
+    # ✅ 상세페이지에서도 리스트 담기 가능하도록 데이터 전달
+    collections = Collection.query.all()
+
+    existing_pairs = set(
+        (item.property_id, item.collection_id)
+        for item in CollectionItem.query.filter_by(property_id=id).all()
+    )
+
     return render_template(
         "property_detail.html",
         p=p,
         images=images,
-        format_sale_price_korean=format_sale_price_korean
+        format_sale_price_korean=format_sale_price_korean,
+        collections=collections,
+        existing_pairs=existing_pairs
     )
+
 
 
 if __name__ == "__main__":
