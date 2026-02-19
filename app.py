@@ -943,8 +943,9 @@ def api_save_memo(id):
 
     collection = Collection.query.get_or_404(id)
 
-    data = request.get_json()
-    memo = (data.get("memo") or "")[:200]
+    data = request.get_json(silent=True) or {}
+    memo = str(data.get("memo","")).strip()[:200]
+
 
     collection.memo = memo
     db.session.commit()
@@ -958,7 +959,7 @@ def api_delete_memo(id):
 
     collection = Collection.query.get_or_404(id)
 
-    collection.memo = None
+    collection.memo = ""
     db.session.commit()
 
     return jsonify({"result": "ok"})
