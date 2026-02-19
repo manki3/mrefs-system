@@ -367,7 +367,7 @@ document.addEventListener("DOMContentLoaded", function(){
 <!-- 컬렉션에서 들어왔을 때만: 리스트 제거 -->
 {% if from_collection %}
 <div class="mobile-remove-panel" onclick="event.stopPropagation();">
-  <form method="POST" action="/remove_from_collection">
+  <form method="POST" action="{{ url_for('remove_from_collection', collection_id=from_collection, property_id=p.id) }}">
     <input type="hidden" name="collection_id" value="{{ from_collection }}">
     <input type="hidden" name="property_id" value="{{ p.id }}">
     <button type="submit" class="mobile-remove-btn">리스트 제거</button>

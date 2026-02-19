@@ -14,8 +14,10 @@
     </div>
 
     <div id="memo-edit" {% if collection.memo %}style="display:none"{% endif %}>
-        <textarea id="memo-input" maxlength="200"
-        placeholder="메모를 입력하세요 (최대 200자)">{{ collection.memo }}</textarea>
+        <textarea id="memo-input" class="memo-input" maxlength="200"
+placeholder="메모를 입력하세요 (최대 200자)">{{ collection.memo or '' }}</textarea>
+
+
         <div class="memo-actions">
             <button onclick="saveMemo()">저장</button>
             <button onclick="cancelMemo()">취소</button>
@@ -39,7 +41,7 @@
 
 <div class="detail-row">
 
-    <div class="card property-card" onclick="location.href='/property/{{ p.id }}'">
+    <div class="card property-card" onclick="location.href='/property/{{ p.id }}?from_collection={{ collection.id }}'">
 
         <div class="property-header">
             <div class="property-title">{{ p.building_name }}</div>
@@ -269,6 +271,9 @@
     }
 }
 
+@media (max-width:800px){
+  .mobile-hide-remove{ display:none !important; }
+}
 
 
 </style>
@@ -339,7 +344,29 @@ function deleteMemo(){
         showToast("메모 삭제됨");
 
     });
+
+
+
 }
+
+}
+
+// PC에서 memo None 자동 제거
+document.addEventListener("DOMContentLoaded", function(){
+    const memo = document.querySelector(".memo-input");
+    if(!memo) return;
+
+    memo.addEventListener("focus", function(){
+        if(memo.value.trim() === "None"){
+            memo.value = "";
+        }
+    });
+    // 최초 로드시 None 제거 (브라우저 캐시 대응)
+if(memo.value.trim() === "None"){
+    memo.value = "";
+}
+
+});
 
 </script>
 

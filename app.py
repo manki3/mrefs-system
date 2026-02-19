@@ -840,8 +840,9 @@ def collection_detail(id):
     )
 
 
-@app.route("/collections/remove/<int:collection_id>/<int:property_id>")
+@app.route("/collections/remove/<int:collection_id>/<int:property_id>", methods=["GET", "POST"])
 def remove_from_collection(collection_id, property_id):
+
 
     CollectionItem.query.filter_by(
         collection_id=collection_id,
@@ -1122,6 +1123,8 @@ def delete_images_selected(property_id):
 @app.route("/property/<int:id>")
 @login_required
 def property_detail(id):
+    from_collection = request.args.get("from_collection")
+
 
     p = Property.query.get_or_404(id)
 
@@ -1135,14 +1138,18 @@ def property_detail(id):
         for item in CollectionItem.query.filter_by(property_id=id).all()
     )
 
+    from_collection = request.args.get("from_collection") == "1"
+
     return render_template(
-        "property_detail.html",
-        p=p,
-        images=images,
-        format_sale_price_korean=format_sale_price_korean,
-        collections=collections,
-        existing_pairs=existing_pairs
-    )
+    "property_detail.html",
+    p=p,
+    images=images,
+    collections=collections,
+    existing_pairs=existing_pairs,
+    from_collection=from_collection
+)
+
+
 
 
 
