@@ -1124,7 +1124,7 @@ def delete_images_selected(property_id):
 @app.route("/property/<int:id>")
 @login_required
 def property_detail(id):
-    from_collection = request.args.get("from_collection")
+    from_collection_id = request.args.get("from_collection_id", type=int)
 
 
     p = Property.query.get_or_404(id)
@@ -1139,7 +1139,7 @@ def property_detail(id):
         for item in CollectionItem.query.filter_by(property_id=id).all()
     )
 
-    from_collection = request.args.get("from_collection") == "1"
+    from_collection_id = request.args.get("from_collection_id", type=int)
 
     return render_template(
     "property_detail.html",
@@ -1147,7 +1147,7 @@ def property_detail(id):
     images=images,
     collections=collections,
     existing_pairs=existing_pairs,
-    from_collection=from_collection
+    from_collection_id=from_collection_id
 )
 
 

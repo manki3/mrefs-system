@@ -41,7 +41,7 @@ placeholder="메모를 입력하세요 (최대 200자)">{{ collection.memo or ''
 
 <div class="detail-row">
 
-    <div class="card property-card" onclick="location.href='/property/{{ p.id }}?from_collection={{ collection.id }}'">
+    <div class="card property-card" onclick="location.href='/property/{{ p.id }}?from_collection_id={{ collection.id }}'">
 
         <div class="property-header">
             <div class="property-title">{{ p.building_name }}</div>
