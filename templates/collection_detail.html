@@ -60,11 +60,12 @@
 
     </div>
 
-    <div class="remove-wrap" onclick="event.stopPropagation();">
+    <div class="remove-wrap mobile-hide-remove" onclick="event.stopPropagation();">
     <a href="{{ url_for('remove_from_collection', collection_id=collection.id, property_id=p.id) }}" class="remove-btn">
         제거
     </a>
 </div>
+
 
 
 </div>
@@ -260,6 +261,13 @@
     box-sizing: border-box;
 }
 
+
+/* 📱 모바일에서는 컬렉션 목록 제거버튼 숨김 */
+@media (max-width:800px){
+    .mobile-hide-remove{
+        display:none;
+    }
+}
 
 
 
