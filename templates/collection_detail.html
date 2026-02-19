@@ -39,7 +39,7 @@
 
 <div class="detail-row">
 
-    <div class="card property-card">
+    <div class="card property-card" onclick="location.href='/property/{{ p.id }}'">
 
         <div class="property-header">
             <div class="property-title">{{ p.building_name }}</div>
@@ -60,7 +60,7 @@
 
     </div>
 
-    <div class="remove-wrap">
+    <div class="remove-wrap" onclick="event.stopPropagation();">
     <a href="{{ url_for('remove_from_collection', collection_id=collection.id, property_id=p.id) }}" class="remove-btn">
         제거
     </a>

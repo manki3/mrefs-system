@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+
+  <!-- 상단 한 줄 -->
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px;">
+
+    <div style="font-size:30px; font-weight:900; letter-spacing:-0.4px;">
+      {{ p.building_name }}
+    </div>
+
+    <div style="font-size:24px; font-weight:900; color:#2563eb; white-space:nowrap;">
+      {% if p.category == "매매" %}
+        매매 {{ format_sale_price_korean(p.sale_price) }}
+      {% else %}
+        임대 {{ p.deposit }}/{{ p.rent }}
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- 하단 정보 -->
+  <div style="margin-top:6px; font-size:16px; color:#555; font-weight:600;">
+    전용 {{ p.exclusive_area }}평
+  </div>
+
+</div>
+
+
+
+<div class="card" style="margin-top:18px;">
+
+  <div style="font-size:18px; font-weight:800; margin-bottom:10px;">사진</div>
+
+  <div class="gallery">
+  {% for img in images %}
+    <div class="photo-wrap" data-id="{{ img.id }}">
+      <input type="checkbox" class="photo-check" value="{{ img.id }}" onclick="event.stopPropagation();">
+      <img src="{{ img.file_path }}" class="photo">
+    </div>
+  {% endfor %}
+</div>
+
+  <div class="photo-actions">
+  <button type="button" id="btn-delete-selected" class="danger-btn">
+    선택 삭제 (<span id="selected-count">0</span>)
+  </button>
+
+  <button type="button" id="btn-delete-all" class="danger-btn outline">
+    전체 삭제
+  </button>
+</div>
+   
+      <!-- ✅ 사진 클릭 시 크게 보여줄 모달 (이전/다음 포함) -->
+  <div id="photo-modal" class="photo-modal" style="display:none;">
+
+    <button type="button" id="photo-prev" class="photo-nav prev">‹</button>
+    <img id="photo-modal-img" src="" alt="big photo">
+    <button type="button" id="photo-next" class="photo-nav next">›</button>
+
+  </div>
+
+
+
+    <form id="photo-upload-form" enctype="multipart/form-data">
+    <!-- ✅ 숨김 파일선택 input -->
+    <input id="photo-input" type="file" name="images" accept="image/*" multiple style="display:none;">
+
+    <!-- ✅ 버튼 하나만 노출 -->
+    <button type="button" id="photo-trigger" class="primary-btn" style="margin-top:10px;">
+      📷 사진 업로드
+    </button>
+  </form>
+
+
+<div id="upload-toast" class="update-toast" style="display:none;">
+  사진 업로드 완료되었습니다 👍
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  const form = document.getElementById("photo-upload-form");
+  const input = document.getElementById("photo-input");
+  const gallery = document.querySelector(".gallery");
+  const toast = document.getElementById("upload-toast");
+  const trigger = document.getElementById("photo-trigger");
+
+  const modal = document.getElementById("photo-modal");
+  const modalImg = document.getElementById("photo-modal-img");
+  const btnPrev = document.getElementById("photo-prev");
+  const btnNext = document.getElementById("photo-next");
+
+  const btnSel = document.getElementById("btn-delete-selected");
+  const btnAll = document.getElementById("btn-delete-all");
+  const countEl = document.getElementById("selected-count");
+
+  let currentIndex = -1;
+  let selectMode = false;
+
+  function getPhotos(){
+    return Array.from(document.querySelectorAll(".gallery .photo"));
+  }
+
+  function showByIndex(idx){
+    const photos = getPhotos();
+    if(!photos.length) return;
+
+    if(idx < 0) idx = photos.length - 1;
+    if(idx >= photos.length) idx = 0;
+
+    currentIndex = idx;
+    modalImg.src = photos[currentIndex].src;
+    modal.style.display = "flex";
+  }
+
+  function openPhotoModal(e){
+
+  // 선택모드에서는 확대 대신 체크 토글
+  if(selectMode){
+    const wrap = e.currentTarget.closest(".photo-wrap");
+    const chk = wrap.querySelector(".photo-check");
+    chk.checked = !chk.checked;
+
+    countEl.innerText = document.querySelectorAll(".photo-check:checked").length;
+    return;
+  }
+
+  const photos = getPhotos();
+  const clicked = e.currentTarget;
+  const idx = photos.indexOf(clicked);
+  showByIndex(idx >= 0 ? idx : 0);
+}
+
+
+  document.querySelectorAll(".gallery .photo").forEach(img => {
+    img.addEventListener("click", openPhotoModal);
+  });
+
+  btnPrev.addEventListener("click", e=>{
+    e.stopPropagation();
+    showByIndex(currentIndex - 1);
+  });
+
+  btnNext.addEventListener("click", e=>{
+    e.stopPropagation();
+    showByIndex(currentIndex + 1);
+  });
+
+  modal.addEventListener("click", ()=>{
+    modal.style.display = "none";
+    modalImg.src = "";
+    currentIndex = -1;
+  });
+
+  document.addEventListener("keydown", function(e){
+    if(modal.style.display === "none") return;
+    if(e.key === "Escape") modal.click();
+    if(e.key === "ArrowLeft") showByIndex(currentIndex - 1);
+    if(e.key === "ArrowRight") showByIndex(currentIndex + 1);
+  });
+
+  function showToast(){
+    toast.style.display = "block";
+    toast.style.opacity = "1";
+    setTimeout(()=>{
+      toast.style.transition="opacity 0.5s";
+      toast.style.opacity="0";
+      setTimeout(()=>{ toast.style.display="none"; toast.style.transition=""; }, 500);
+    }, 1200);
+  }
+
+  trigger.addEventListener("click", ()=> input.click());
+
+  input.addEventListener("change", async function(){
+    if(!input.files || !input.files.length) return;
+
+    trigger.disabled = true;
+    trigger.innerText = "업로드 중...";
+
+    const fd = new FormData();
+    for(const f of input.files) fd.append("images", f);
+
+    const res = await fetch("/upload_images/{{ p.id }}",{method:"POST",body:fd});
+    if(!res.ok){ alert("업로드 실패"); return; }
+
+    for(const f of input.files){
+      const url = URL.createObjectURL(f);
+      const img = document.createElement("img");
+      img.src = url;
+      img.className = "photo";
+      gallery.prepend(img);
+      img.addEventListener("click", openPhotoModal);
+    }
+
+    input.value="";
+    showToast();
+    trigger.disabled=false;
+    trigger.innerText="📷 사진 업로드";
+  });
+
+  function getChecked(){
+    return Array.from(document.querySelectorAll(".photo-check:checked"))
+      .map(e=>parseInt(e.value));
+  }
+
+  function exitSelectMode(){
+    selectMode=false;
+    gallery.classList.remove("select-mode");
+    document.querySelectorAll(".photo-check").forEach(c=>c.checked=false);
+    countEl.innerText=0;
+    btnSel.innerText="선택 삭제";
+    btnAll.innerText="전체 삭제";
+  }
+
+  btnSel.addEventListener("click", async ()=>{
+    if(!selectMode){
+      selectMode=true;
+      gallery.classList.add("select-mode");
+      btnSel.innerText="삭제 실행";
+      btnAll.innerText="취소";
+      return;
+    }
+
+    const ids=getChecked();
+    if(!ids.length){ alert("삭제할 사진 선택"); return; }
+    if(!confirm(ids.length+"장 삭제할까요?")) return;
+
+    const res=await fetch("/delete_images_selected/{{ p.id }}",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({image_ids:ids})
+    });
+
+    if(!res.ok){ alert("삭제 실패"); return; }
+
+    ids.forEach(id=>{
+      document.querySelector(`.photo-wrap[data-id="${id}"]`)?.remove();
+    });
+
+    exitSelectMode();
+  });
+
+  btnAll.addEventListener("click", async ()=>{
+    if(selectMode){ exitSelectMode(); return; }
+
+    if(!confirm("전체 삭제할까요?")) return;
+
+    const res=await fetch("/delete_images/{{ p.id }}",{method:"POST"});
+    if(!res.ok){ alert("삭제 실패"); return;}
+
+    document.querySelectorAll(".photo-wrap").forEach(e=>e.remove());
+  });
+
+});
+</script>
+
+
+
+</div>
+
+
+<style>
+.gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+  gap:10px;
+}
+
+.photo{
+  width:100%;
+  height:120px;
+  object-fit:cover;
+  border-radius:10px;
+  cursor:pointer;
+  border:1px solid #e5e7eb;
+  display:block;
+}
+
+/* ✅ 전체화면 사진 확대 모달 */
+.photo-modal{
+  position:fixed;
+  left:0;
+  top:0;
+  right:0;
+  bottom:0;
+  background:rgba(0,0,0,0.82);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+  padding:20px;
+}
+
+.photo-modal img{
+  max-width:95vw;
+  max-height:90vh;
+  border-radius:12px;
+  box-shadow:0 12px 30px rgba(0,0,0,0.35);
+}
+
+
+/* ✅ 모달 이전/다음 버튼 */
+.photo-nav{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  width:56px;
+  height:56px;
+  border:none;
+  border-radius:999px;
+  background:rgba(255,255,255,0.18);
+  color:#fff;
+  font-size:40px;
+  line-height:56px;
+  cursor:pointer;
+  user-select:none;
+}
+
+.photo-nav:hover{
+  background:rgba(255,255,255,0.28);
+}
+
+.photo-nav.prev{ left:18px; }
+.photo-nav.next{ right:18px; }
+
+
+.primary-btn{
+  width:100%;
+  height:44px;
+  border:none;
+  border-radius:10px;
+  background:#2d7ff9;
+  color:#fff;
+  font-weight:800;
+  font-size:15px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.primary-btn:hover{ opacity:0.92; }
+.primary-btn:disabled{ background:#bfc7d5; cursor:not-allowed; }
+
+.photo-wrap{
+  position:relative;
+}
+
+.photo-check{
+  position:absolute;
+  top:8px;
+  left:8px;
+  width:18px;
+  height:18px;
+  z-index:10;
+  cursor:pointer;
+  display:none;
+}
+
+/* 선택모드일때만 보이게 */
+.gallery.select-mode .photo-check{
+  display:block;
+}
+
+
+.photo-actions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+}
+
+.danger-btn{
+  flex:1;
+  height:40px;
+  border:none;
+  border-radius:10px;
+  background:#ff9f43;      /* 연한 주황 */
+  color:#fff;
+  font-weight:800;
+  font-size:14px;
+  cursor:pointer;
+  transition:all 0.15s ease;
+}
+
+.danger-btn:hover{
+  background:#ff8c2a;
+}
+
+.danger-btn.outline{
+  background:#fff;
+  color:#ff9f43;
+  border:2px solid #ff9f43;
+}
+
+
+
+
+.danger-btn:disabled{
+  background:#ffc9c9;
+  cursor:not-allowed;
+}
+
+</style>
+
+
+{% endblock %}

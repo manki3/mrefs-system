@@ -171,16 +171,12 @@ h1 {
     text-align: center;
 }
 
-h2 {
-    font-size: 16px;
-    margin: 10px 0;
+h2{
+    font-size:19px;
+    margin:0 0 2px 0;
+    line-height:1.15;
 }
 
-
-h2 {
-    font-size: 16px;
-    margin: 10px 0;
-}
 
 /* ===== 여기부터 추가 ===== */
 
@@ -251,14 +247,18 @@ select {
 .property-card .title {
     font-weight: bold;
     font-size: 15px;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
+    line-height: 1.15;
 }
+
 
 .property-card .detail {
     font-size: 13px;
-    margin-bottom: 4px;
+    margin-bottom: 1px;
     color: #444;
+    line-height: 1.15;
 }
+
 
 .property-card .price {
     margin-top: 6px;
@@ -403,20 +403,67 @@ select {
     display:flex;
     align-items:center;
     gap:10px;
+    flex-wrap:nowrap;
 }
 
 
-.price-inline{
-    font-weight:900;
-    color:#2d7ff9;
-    white-space:nowrap;
-    margin-left:14px;
-    padding-left:14px;
-    border-left:2px solid #e5e7eb;
 
+
+.thumb-img{
+    width:110px;
+    height:78px;
+    object-fit:cover;
+    border-radius:12px;
+    border:1px solid #e5e7eb;
+    background:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    transition:transform .15s ease;
+}
+
+
+/* ===== 카드 썸네일 영역 ===== */
+
+.thumb-box{
+    display:flex;
+    gap:8px;
+    align-items:flex-start;
+    flex-shrink:0;
+    margin-top:0;
+}
+
+
+
+
+.thumb-img{
+    width:110px;
+    height:78px;
+    object-fit:cover;
+    border-radius:12px;
+    border:1px solid #e5e7eb;
+    background:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+    transition:transform .15s ease;
+
+    display:block;          /* ✅ 베이스라인 여백 제거 */
+    margin-top:-8px;        /* ✅ 썸네일만 한칸 위로 */
+}
+
+
+
+.thumb-img:hover{
+    transform:scale(1.04);
+}
+
+.area-text{
     font-size:18px;
-    letter-spacing:0.2px;
+    font-weight:800;
+    color:#111827;
+    line-height:1.05;
+    letter-spacing:-0.2px;
 }
+
+
+
 
 
 
@@ -486,9 +533,10 @@ select {
 .detail-row{
     display:flex;
     gap:14px;
-    align-items:stretch;
+    align-items:center;
     margin-top:14px;
 }
+
 
 .detail-row > .card{
     display:flex;
@@ -497,7 +545,8 @@ select {
 
 
 .action-card{
-    min-width:220px;
+    min-width:176px;     /* ✅ 220의 80% = 176 (약 20% 줄임) */
+    width:176px;         /* ✅ 폭을 고정해서 매물카드가 더 넓어지게 */
     display:flex;
     flex-direction:column;
     justify-content:center;
@@ -505,6 +554,7 @@ select {
     background:#f8fafc;
     border-radius:12px;
 }
+
 
 
 /* 리스트 담기 카드 UI 완전 통일 */
@@ -590,9 +640,7 @@ select {
 }
 
 /* action-card 최소 높이 = 기준 높이 */
-.action-card{
-    min-height:96px;
-}
+
 
 /* 매물카드도 같은 높이로 확장 */
 .property-card{
@@ -604,7 +652,7 @@ select {
 .property-card .card-left{
     display:flex;
     flex-direction:column;
-    justify-content:center;
+    justify-content:flex-start;
 }
 
 
@@ -626,7 +674,9 @@ select {
     font-size:20px;
     letter-spacing:-0.2px;
     color:#2563eb;
+    line-height:1;          /* ✅ 글자 바닥선 고정 */
 }
+
 
 .property-card .price{
     font-weight:800;
@@ -653,7 +703,10 @@ select {
 .property-card .detail{
     font-size:13px;
     color:#6b7280;
+    margin:1px 0;
+    line-height:1.2;
 }
+
 
 /* 종류 텍스트 */
 .property-card .detail-line{
@@ -667,7 +720,21 @@ select {
 
 /* 카드 가독성 미세 개선 */
 .property-card{
-    line-height:1.45;
+    line-height:1.25;
+}
+
+/* 전용면적 강조 */
+.area-main{
+    font-weight:800;
+    font-size:18px;
+    color:#111827;
+}
+
+/* 계약면적 약하게 */
+.area-sub{
+    font-weight:500;
+    font-size:13px;
+    color:#6b7280;
 }
 
 

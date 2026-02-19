@@ -5,11 +5,23 @@ from sqlalchemy import case
 import pandas as pd
 import re
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
+import zipfile
+import shutil
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
 app = Flask(__name__)
+UPLOAD_FOLDER = "static/uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+TEMP_FOLDER = "temp_zip"
+os.makedirs(TEMP_FOLDER, exist_ok=True)
+
+
 app.config["SECRET_KEY"] = "super_secret_key_for_login_2025"
 
 
@@ -67,6 +79,13 @@ class CollectionItem(db.Model):
     collection_id = db.Column(db.Integer)
     property_id = db.Column(db.Integer)
     position = db.Column(db.Integer, default=0)
+
+class PropertyImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    property_id = db.Column(db.Integer, index=True)
+    file_path = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -238,6 +257,22 @@ def clean_building_name(raw):
 
     return text.strip()
 
+def split_unit_numbers(text):
+    text = text.replace("호", "")
+    parts = re.split(r"[,\s]+", text)
+    result = []
+
+    for p in parts:
+        p = p.strip()
+        if not p:
+            continue
+        if not p.endswith("호"):
+            p = p + "호"
+        result.append(p)
+
+    return result
+
+
 
 def parse_price_auto(raw):
 
@@ -369,12 +404,11 @@ def index():
     sort = request.args.get("sort", "")
     property_type = request.args.get("property_type", "")
 
-
     query = Property.query
 
     if property_type:
         query = query.filter(Property.property_type == property_type)
- 
+
     if mode == "sale":
         query = query.filter_by(category="매매")
     else:
@@ -383,24 +417,17 @@ def index():
     # 정렬 로직
     if sort == "rent_asc":
         query = query.order_by(Property.rent.asc(), Property.deposit.asc())
-
     elif sort == "rent_desc":
         query = query.order_by(Property.rent.desc(), Property.deposit.desc())
-
     elif sort == "sale_asc":
         query = query.order_by(Property.sale_price.asc())
-
     elif sort == "sale_desc":
         query = query.order_by(Property.sale_price.desc())
-
     elif sort == "area_asc":
         query = query.order_by(Property.exclusive_area.asc())
-
     elif sort == "area_desc":
         query = query.order_by(Property.exclusive_area.desc())
-
     else:
-        # 기본 정렬
         if mode == "rent":
             query = query.order_by(Property.rent.asc(), Property.deposit.asc())
         else:
@@ -409,11 +436,7 @@ def index():
     properties = query.all()
 
     last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
-
     upload_time = last_upload.upload_time if last_upload else "업로드 기록 없음"
-
-
-
 
     collections = Collection.query.all()
 
@@ -421,6 +444,14 @@ def index():
         (item.property_id, item.collection_id)
         for item in CollectionItem.query.all()
     )
+
+    # ✅ 카드 미리보기용 최신 사진 2장
+    thumb_map = {}
+    for img in PropertyImage.query.order_by(PropertyImage.id.desc()).all():
+        if img.property_id not in thumb_map:
+            thumb_map[img.property_id] = []
+        if len(thumb_map[img.property_id]) < 2:
+            thumb_map[img.property_id].append(img.file_path)
 
     return render_template(
         "index.html",
@@ -430,11 +461,9 @@ def index():
         upload_time=upload_time,
         property_type=property_type,
         collections=collections,
-        existing_pairs=existing_pairs
+        existing_pairs=existing_pairs,
+        thumb_map=thumb_map
     )
-
-
-
 
 
 
@@ -467,88 +496,89 @@ def search():
 
     if category == "월세":
         query = query.filter(Property.category == "월세")
-
     elif category == "매매":
         query = query.filter(Property.category == "매매")
 
     if min_deposit:
         query = query.filter(Property.deposit >= int(min_deposit))
-
     if max_deposit:
         query = query.filter(Property.deposit <= int(max_deposit))
 
     if min_rent:
         query = query.filter(Property.rent >= int(min_rent))
-
     if max_rent:
         query = query.filter(Property.rent <= int(max_rent))
 
     if min_area:
         query = query.filter(Property.exclusive_area >= float(min_area))
-
     if max_area:
         query = query.filter(Property.exclusive_area <= float(max_area))
 
     if min_sale:
         query = query.filter(Property.sale_price >= int(min_sale))
-
     if max_sale:
         query = query.filter(Property.sale_price <= int(max_sale))
 
-        # -------- 정렬 로직 --------
+    # 정렬 로직
     if sort == "rent_asc":
         query = query.order_by(
             case((Property.category == "월세", 0), else_=1),
             Property.rent.asc()
         )
-
     elif sort == "rent_desc":
         query = query.order_by(
             case((Property.category == "월세", 0), else_=1),
             Property.rent.desc()
         )
-
     elif sort == "sale_asc":
         query = query.order_by(
             case((Property.category == "매매", 0), else_=1),
             Property.sale_price.asc()
         )
-
     elif sort == "sale_desc":
         query = query.order_by(
             case((Property.category == "매매", 0), else_=1),
             Property.sale_price.desc()
         )
-
     elif sort == "area_asc":
         query = query.order_by(Property.exclusive_area.asc())
-
     elif sort == "area_desc":
         query = query.order_by(Property.exclusive_area.desc())
 
-
-
     results = query.all()
+
     last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
     upload_time = last_upload.upload_time if last_upload else "-"
-
 
     collections = Collection.query.all()
 
     existing_pairs = set(
-    (item.property_id, item.collection_id)
-    for item in CollectionItem.query.all()
-)
+        (item.property_id, item.collection_id)
+        for item in CollectionItem.query.all()
+    )
 
+    # ✅ 카드 미리보기용 최신 사진 2장
+    thumb_map = {}
+    for img in PropertyImage.query.order_by(PropertyImage.id.desc()).all():
+        if img.property_id not in thumb_map:
+            thumb_map[img.property_id] = []
+        if len(thumb_map[img.property_id]) < 2:
+            thumb_map[img.property_id].append(img.file_path)
 
     return render_template(
-    "search.html",
-    properties=results,
-    collections=collections,
-    existing_pairs=existing_pairs,
-    format_sale_price_korean=format_sale_price_korean,
-    upload_time=upload_time
-)
+        "search.html",
+        properties=results,
+        collections=collections,
+        existing_pairs=existing_pairs,
+        format_sale_price_korean=format_sale_price_korean,
+        upload_time=upload_time,
+        thumb_map=thumb_map
+    )
+
+
+
+
+
 
 
 
@@ -933,6 +963,176 @@ def api_delete_memo(id):
     return jsonify({"result": "ok"})
 
 
+@app.route("/upload_images/<int:property_id>", methods=["POST"])
+@login_required
+def upload_images(property_id):
+
+    files = request.files.getlist("images")
+
+    if not files:
+        return "no files", 400
+
+    for file in files:
+        if file.filename == "":
+            continue
+
+        filename = secure_filename(file.filename)
+        unique = f"{datetime.utcnow().timestamp()}_{filename}"
+        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+        file.save(save_path)
+
+        img = PropertyImage(
+            property_id=property_id,
+            file_path="/" + save_path.replace("\\","/")
+        )
+        db.session.add(img)
+
+    db.session.commit()
+    return jsonify({"result": "ok"})
+
+
+@app.route("/bulk_upload_zip", methods=["POST"])
+@login_required
+def bulk_upload_zip():
+
+    file = request.files.get("zipfile")
+    if not file:
+        return "no file", 400
+
+    zip_path = os.path.join(TEMP_FOLDER, "upload.zip")
+    file.save(zip_path)
+
+    # 압축 풀기
+    extract_path = os.path.join(TEMP_FOLDER, "unzipped")
+    if os.path.exists(extract_path):
+        shutil.rmtree(extract_path)
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_path)
+
+    matched = 0
+    skipped = 0
+
+    # 건물 폴더 순회
+    for building_folder in os.listdir(extract_path):
+        building_path = os.path.join(extract_path, building_folder)
+        if not os.path.isdir(building_path):
+            continue
+
+        # 호수 폴더 순회
+        for unit_folder in os.listdir(building_path):
+            unit_path = os.path.join(building_path, unit_folder)
+            if not os.path.isdir(unit_path):
+                continue
+
+            units = split_unit_numbers(unit_folder)
+
+            for unit in units:
+                # DB 매칭
+                prop = Property.query.filter(
+                    Property.building_name.like(f"%{building_folder}%"),
+                    Property.building_name.like(f"%{unit}%")
+                ).first()
+
+                if not prop:
+                    skipped += 1
+                    continue
+
+                # 이미지 저장
+                for img_name in os.listdir(unit_path):
+                    img_path = os.path.join(unit_path, img_name)
+
+                    if not img_name.lower().endswith((".jpg",".jpeg",".png",".webp")):
+                        continue
+
+                    new_name = f"{datetime.utcnow().timestamp()}_{img_name}"
+                    save_path = os.path.join(app.config["UPLOAD_FOLDER"], new_name)
+
+                    shutil.copy(img_path, save_path)
+
+                    db.session.add(PropertyImage(
+                        property_id=prop.id,
+                        file_path="/" + save_path.replace("\\","/")
+                    ))
+
+                    matched += 1
+
+    db.session.commit()
+
+    return f"완료: {matched}개 매칭, {skipped}개 실패"
+
+
+@app.route("/delete_images/<int:property_id>", methods=["POST"])
+@login_required
+def delete_images(property_id):
+
+    imgs = PropertyImage.query.filter_by(property_id=property_id).all()
+
+    for img in imgs:
+        try:
+            path = img.file_path.lstrip("/")
+            if os.path.exists(path):
+                os.remove(path)
+        except:
+            pass
+
+        db.session.delete(img)
+
+    db.session.commit()
+    return jsonify({"result":"ok"})
+
+
+@app.route("/delete_images_selected/<int:property_id>", methods=["POST"])
+@login_required
+def delete_images_selected(property_id):
+
+    data = request.get_json() or {}
+    image_ids = data.get("image_ids") or []
+
+    # ids 방어 (문자/빈값 들어와도 터지지 않게)
+    try:
+        image_ids = [int(x) for x in image_ids]
+    except:
+        return jsonify({"result":"bad_ids"}), 400
+
+    if not image_ids:
+        return jsonify({"result":"no_ids"}), 400
+
+    imgs = PropertyImage.query.filter(
+        PropertyImage.property_id == property_id,
+        PropertyImage.id.in_(image_ids)
+    ).all()
+
+    for img in imgs:
+        try:
+            path = img.file_path.lstrip("/")
+            if os.path.exists(path):
+                os.remove(path)
+        except:
+            pass
+
+        db.session.delete(img)
+
+    db.session.commit()
+    return jsonify({"result":"ok"})
+
+
+
+
+@app.route("/property/<int:id>")
+@login_required
+def property_detail(id):
+
+    p = Property.query.get_or_404(id)
+
+    images = PropertyImage.query.filter_by(property_id=id).order_by(PropertyImage.id.desc()).all()
+
+    return render_template(
+        "property_detail.html",
+        p=p,
+        images=images,
+        format_sale_price_korean=format_sale_price_korean
+    )
 
 
 if __name__ == "__main__":

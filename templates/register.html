@@ -148,6 +148,32 @@ document.addEventListener("DOMContentLoaded", function(){
         },3000);
     }
 });
+
+
+
+
+
 </script>
+
+<div class="card" style="margin-top:30px;">
+
+<div class="section-title">사진 폴더 업로드</div>
+
+<form method="POST" action="/bulk_upload_zip" enctype="multipart/form-data">
+
+<input type="file" name="zipfile" accept=".zip" required>
+<br><br>
+
+<button type="submit" class="primary-btn">자동 매칭 업로드 실행</button>
+
+</form>
+
+<p style="margin-top:12px; font-size:13px; color:#666;">
+건물폴더 → 호수폴더 구조의 ZIP 파일을 업로드하면 자동으로 매물에 연결됩니다.
+</p>
+
+</div>
+
+
 
 {% endblock %}

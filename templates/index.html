@@ -58,7 +58,7 @@
 <div class="detail-row">
 
     <!-- 매물 카드 -->
-    <div class="card property-card {{ p.property_type }}">
+    <div class="card property-card {{ p.property_type }}" onclick="location.href='/property/{{ p.id }}'">
         <div class="card-left">
             <div class="title">{{ p.building_name }}</div>
 
@@ -66,18 +66,33 @@
                 종류 : {{ p.property_type }}
             </div>
 
-            <div class="detail detail-line">
-                전용 : {{ p.exclusive_area }}평 /
-                계약 : {{ p.contract_area }}평
+            <div class="detail-line">
 
-                <span class="price-inline">
-                {% if p.category == "매매" %}
-                    매매 {{ format_sale_price_korean(p.sale_price) }}
-                {% else %}
-                    임대 {{ p.deposit }}/{{ p.rent }}
-                {% endif %}
-                </span>
-            </div>
+    <div class="area-text">
+    <span class="area-main">전용 : {{ p.exclusive_area }}평</span>
+    <span class="area-sub"> / 계약 : {{ p.contract_area }}평</span>
+</div>
+
+
+    <span class="price-inline">
+    {% if p.category == "매매" %}
+        매매 {{ format_sale_price_korean(p.sale_price) }}
+    {% else %}
+        임대 {{ p.deposit }}/{{ p.rent }}
+    {% endif %}
+    </span>
+
+    <div class="thumb-box">
+        {% for img in thumb_map.get(p.id, []) %}
+            <img src="{{ img }}" class="thumb-img">
+        {% endfor %}
+    </div>
+
+</div>
+
+
+
+            
         </div>
     </div>
 
