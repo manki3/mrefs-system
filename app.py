@@ -120,18 +120,23 @@ def normalize_ryuma_tower(name):
 
     import re
 
-    m = re.search(r"(류마타워)(\d+)?", name)
+    # "류마타워숫자" 형태만 인정 (공백 없이 붙은 경우만)
+    m = re.search(r"류마타워(\d+)", name)
 
-    if not m:
-        return name
+    if m:
+        return f"류마타워{m.group(1)}"
 
-    base = m.group(1)
-    num = m.group(2)
+    # 숫자 없으면 무조건 1차
+    if "류마타워" in name:
+        return "류마타워1"
 
-    if not num:
-        num = "1"
+    return name
 
-    return f"{base}{num}"
+def extract_unit(name):
+    m = re.search(r"(\d+호)", name)
+    if m:
+        return m.group(1)
+    return ""
 
 
 def format_sale_price_korean(price):
@@ -690,7 +695,13 @@ def register():
 
 
             building_raw = clean_building_name(row.get(col_address, ""))
-            building = normalize_ryuma_tower(building_raw)
+
+            unit = extract_unit(building_raw)          # 호실 추출
+            building_base = normalize_ryuma_tower(building_raw)
+
+            # 건물명 + 호실 합쳐 저장
+            building = f"{building_base} {unit}".strip()
+
 
 
             deal_type = str(row.get("거래종류", "")).strip()
