@@ -756,10 +756,24 @@ select {
 
 /* ✅ 모바일에서는 목록/검색의 리스트담기 카드 숨김 */
 @media (max-width:800px){
+
+  /* 리스트 담기 카드 완전 제거 */
   .action-card{
     display:none !important;
   }
+
+  /* 매물카드가 전체 폭 사용하도록 레이아웃 재구성 */
+  .detail-row{
+    flex-direction:column !important;
+    gap:0 !important;
+  }
+
+  .detail-row > .card{
+    width:100% !important;
+  }
+
 }
+
 
 
 </style>
