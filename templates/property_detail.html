@@ -103,17 +103,30 @@ document.addEventListener("DOMContentLoaded", function(){
     return Array.from(document.querySelectorAll(".gallery .photo"));
   }
 
-  function showByIndex(idx){
-    const photos = getPhotos();
-    if(!photos.length) return;
+  function showByIndex(idx, direction=null){
+  const photos = getPhotos();
+  if(!photos.length) return;
 
-    if(idx < 0) idx = photos.length - 1;
-    if(idx >= photos.length) idx = 0;
+  if(idx < 0) idx = photos.length - 1;
+  if(idx >= photos.length) idx = 0;
 
-    currentIndex = idx;
-    modalImg.src = photos[currentIndex].src;
-    modal.style.display = "flex";
+  currentIndex = idx;
+
+  if(direction){
+    modalImg.classList.remove("photo-slide-left","photo-slide-right");
+    void modalImg.offsetWidth; // 리플로우 트릭
+
+    if(direction === "left"){
+      modalImg.classList.add("photo-slide-left");
+    }else if(direction === "right"){
+      modalImg.classList.add("photo-slide-right");
+    }
   }
+
+  modalImg.src = photos[currentIndex].src;
+  modal.style.display = "flex";
+}
+
 
   function openPhotoModal(e){
 
@@ -139,14 +152,15 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   btnPrev.addEventListener("click", e=>{
-    e.stopPropagation();
-    showByIndex(currentIndex - 1);
-  });
+  e.stopPropagation();
+  showByIndex(currentIndex - 1, "right");
+});
 
   btnNext.addEventListener("click", e=>{
-    e.stopPropagation();
-    showByIndex(currentIndex + 1);
-  });
+  e.stopPropagation();
+  showByIndex(currentIndex + 1, "left");
+});
+
 
   modal.addEventListener("click", ()=>{
     modal.style.display = "none";
@@ -185,10 +199,11 @@ modal.addEventListener("touchend", function(e){
   if(Math.abs(dx) < 40) return;
 
   if(dx < 0){
-    showByIndex(currentIndex + 1);   // 왼쪽으로 밀면 다음
+  showByIndex(currentIndex + 1, "left");
   }else{
-    showByIndex(currentIndex - 1);   // 오른쪽으로 밀면 이전
+  showByIndex(currentIndex - 1, "right");
   }
+
 
 }, {passive:true});
 
@@ -416,6 +431,25 @@ document.addEventListener("DOMContentLoaded", function(){
   max-height:90vh;
   border-radius:12px;
   box-shadow:0 12px 30px rgba(0,0,0,0.35);
+}
+
+/* 스와이프 애니메이션 */
+.photo-slide-left{
+  animation: slideLeft 0.18s ease;
+}
+
+.photo-slide-right{
+  animation: slideRight 0.18s ease;
+}
+
+@keyframes slideLeft{
+  from{ transform:translateX(35px); opacity:0.5; }
+  to{ transform:translateX(0); opacity:1; }
+}
+
+@keyframes slideRight{
+  from{ transform:translateX(-35px); opacity:0.5; }
+  to{ transform:translateX(0); opacity:1; }
 }
 
 

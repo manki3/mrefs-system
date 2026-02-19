@@ -116,6 +116,23 @@ def to_pyung(value):
     except:
         return 0
 
+def normalize_ryuma_tower(name):
+
+    import re
+
+    m = re.search(r"(류마타워)(\d+)?", name)
+
+    if not m:
+        return name
+
+    base = m.group(1)
+    num = m.group(2)
+
+    if not num:
+        num = "1"
+
+    return f"{base}{num}"
+
 
 def format_sale_price_korean(price):
 
@@ -672,7 +689,9 @@ def register():
         
 
 
-            building = clean_building_name(row.get(col_address, ""))
+            building_raw = clean_building_name(row.get(col_address, ""))
+            building = normalize_ryuma_tower(building_raw)
+
 
             deal_type = str(row.get("거래종류", "")).strip()
             price_raw = str(row.get("매물가", "")).replace(",", "").strip()
