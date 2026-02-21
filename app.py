@@ -164,7 +164,7 @@ def normalize_dong(text):
     return text
 
 def normalize_building_custom(text):
-    # 🚨 퀸즈파크 관련 잡다한 '문영' 떼기 및 완벽 통일 (에러 원인 제거!)
+    # 🚨 퀸즈파크 관련 잡다한 '문영' 떼기 및 완벽 통일
     text = re.sub(r'문영\s*퀸즈', '퀸즈', text)
     text = re.sub(r'퀸즈파크\s*나인', '퀸즈9', text)
     text = re.sub(r'퀸즈파크\s*9차', '퀸즈9', text)
@@ -181,6 +181,10 @@ def normalize_building_custom(text):
     # 그랑트윈
     text = text.replace("마곡그랑트윈타워", "그랑트윈타워")
     text = text.replace("마곡동 그랑트윈타워", "그랑트윈타워")
+
+    # 🚀 747타워 완벽 패치 (중복으로 '타워타워' 되는 것 방지)
+    text = text.replace("747타워", "747")
+    text = text.replace("747", "747타워")
 
     # 기타 자주 쓰이는 이름들
     text = text.replace("마곡엠밸리9단지 제업무시설동", "엠밸리 9단지")
@@ -242,8 +246,9 @@ def clean_building_name(raw):
     for w in remove_words:
         text = text.replace(w, "")
 
-    # 앞에 붙은 지번(예: 799-1) 날리기
-    text = re.sub(r"^\d+\-\d+\s*", "", text)
+    # 🔥 앞에 붙은 지번(예: 799-1 또는 747 단독) 완벽하게 날리기
+    text = re.sub(r"^\d+(?:-\d+)?\s+", "", text)
+    
     # 층수 날리기 (예: 제9층)
     text = re.sub(r"제?\s*\d+\s*층", "", text)
     # 제944호 -> 944호
@@ -254,47 +259,35 @@ def clean_building_name(raw):
 
     # 🔥 퀸즈 9, 10, 11 동(A,B,C) 철벽 방어 및 층수별 상가/사무실 자동 할당 로직
     if "퀸즈" in text:
-        # 1. 엉뚱하게 붙어있는 기존 동(A~C동, a~c동) 일단 싹 제거
         text = re.sub(r'[A-Ca-c]동\s*', '', text)
-        
-        # 2. 건물명(퀸즈9, 퀸즈10 등) 숫자를 지운 뒤 호수 번호만 추출
         clean_for_search = re.sub(r'퀸즈\d+', '', text)
         nums = re.findall(r'\d+', clean_for_search)
-        
         if nums:
             unit_str = nums[-1]
             unit_num = int(unit_str)
-            floor = unit_num // 100    # 층수 (예: 605 -> 6층)
-            last_two = unit_num % 100  # 호수 (예: 605 -> 5호)
-            
+            floor = unit_num // 100
+            last_two = unit_num % 100
             target_dong = ""
-            
             if "퀸즈9" in text:
                 if 1 <= last_two <= 10: target_dong = "A동"
                 elif 11 <= last_two <= 30: target_dong = "B동"
                 elif 31 <= last_two <= 46: target_dong = "C동"
-            
             elif "퀸즈10" in text:
-                # 5층 이하(1~5층)는 상가이므로 동 배정 패스
                 if floor >= 6:
                     if 1 <= last_two <= 10: target_dong = "A동"
                     elif 11 <= last_two <= 20: target_dong = "B동"
-            
             elif "퀸즈11" in text:
-                # 4층 이하(1~4층)는 상가이므로 동 배정 패스
                 if floor >= 5:
                     if (1 <= last_two <= 6) or (23 <= last_two <= 29): target_dong = "A동"
                     elif 7 <= last_two <= 22: target_dong = "B동"
-            
             if target_dong:
-                # 3. 퀸즈X 뒤에 정확한 동을 덮어씀 (예: 퀸즈10 A동 605호)
                 text = re.sub(r'(퀸즈\d+)\s*', rf'\1 {target_dong} ', text)
 
     # ✅ 하이픈 제거: C동-503호 -> C동 503호로 강제 통일
     text = re.sub(r"([A-Za-z가-힣0-9]+동)\s*-\s*(\d+호?)", r"\1 \2", text)
 
     # 맨 앞에 쓸데없이 남은 숫자 찌꺼기 제거
-    if re.match(r"^\d+\s*(랜드파크|두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩|퀸즈)", text):
+    if re.match(r"^\d+\s*(랜드파크|두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩|퀸즈|747타워)", text):
         text = re.sub(r"^\d+\s*", "", text)
 
     text = " ".join(text.split())
@@ -744,17 +737,17 @@ def register():
 
     # -------- 비공개 메모(TXT) 매칭 업로드 (궁극의 찰떡 매칭) --------
     if request.method == "POST" and request.form.get("form_type") == "memo_txt":
+        import difflib # 🚀 인공지능 텍스트 유사도 매칭 라이브러리 탑재!
+        
         file = request.files.get("file")
         if not file: return "파일이 없습니다."
         
-        # 1. 파일 인코딩(글자 깨짐) 방지
         raw_bytes = file.read()
         try:
             text = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:
             text = raw_bytes.decode("cp949", errors="ignore")
 
-        # 2. 날짜 구분을 하이픈 개수 상관없이 유연하게 찾기 (1년)
         cutoff_date = datetime.now() - timedelta(days=365)
         header_regex = r"(-+\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일.*?-+)"
         parts = re.split(header_regex, text)
@@ -762,7 +755,7 @@ def register():
         if len(parts) < 2:
             parts = ["", "--------------- 2025년 1월 1일 ---------------", text]
 
-        # 3. DB 매물 정보 사전 준비 (핵심 키워드 지문 추출)
+        # 3. DB 매물 정보 사전 준비 (AI 매칭을 위해 구조 변경)
         all_props = Property.query.all()
         prop_info = []
         for p in all_props:
@@ -773,8 +766,8 @@ def register():
             if not m: continue
             db_unit = m.group(1)
             
+            # 🔥 건물 이름에서 호수만 딱 떼어낸 순수 뼈대 이름 추출
             base_clean = re.sub(r"\d+(?:-\d+)?호.*$", "", name_clean)
-            short_base = base_clean[:2]  # 건물명 앞 2글자 (예: 보타, 퀸즈)
             
             dong_m = re.search(r"([a-z\d])동", name_clean)
             db_dong = dong_m.group(1) if dong_m else ""
@@ -782,7 +775,7 @@ def register():
             prop_info.append({
                 'id': p.id,
                 'unit': db_unit,
-                'short_base': short_base,
+                'base_name_clean': base_clean,
                 'dong': db_dong
             })
 
@@ -807,46 +800,73 @@ def register():
                 if not block: continue
 
                 block_content = re.sub(r"^\[[^\]]+\]\s*\[[^\]]+\]\s*", "", block).strip()
-                
-                # ✅ "메시지가 삭제되었습니다" 문구 제거
                 if "메시지가 삭제되었습니다" in block_content:
                     block_content = block_content.replace("메시지가 삭제되었습니다.", "").replace("메시지가 삭제되었습니다", "").strip()
-                
                 if not block_content: continue
                 
-                # ✅ 아웃/계약완료된 건 지우지 않고 [아웃] 표시를 달아서 저장!
                 is_out = any(k in block_content.replace(" ","").lower() for k in ["아웃", "계약완료", "보류", "매도함", "계약됨"])
                 if is_out:
                     block_content = "🚨 [계약/아웃된 매물] " + block_content
 
                 lines = block_content.split("\n")
                 first_line_raw = lines[0].strip()
-                
-                # 카톡 첫 줄을 엑셀과 동일한 조건으로 클리닝
                 first_line_clean = clean_building_name(first_line_raw).replace(" ", "").lower()
                 
-                # 카톡에 '호'가 빠져있으면 숫자 뒤에 억지로 붙여줌 (예: 805 -> 805호)
                 if not re.search(r"호$", first_line_clean) and re.search(r"\d+$", first_line_clean):
                     first_line_clean += "호"
+
+                # 🔥 카톡 텍스트에서 호수 뗀 순수 건물명 추출
+                kakao_bldg_only = re.sub(r"\d+(?:-\d+)?호.*$", "", first_line_clean)
 
                 kakao_dong_m = re.search(r"([a-z\d])동", first_line_clean)
                 kakao_dong = kakao_dong_m.group(1) if kakao_dong_m else ""
 
-                # DB 매물들과 1:1 대조 (찰떡 매칭)
+                kakao_nums = []
+                for rm in re.finditer(r"(\d+)\s*~\s*(\d+)", first_line_clean):
+                    start = int(rm.group(1))
+                    end = int(rm.group(2))
+                    if start < end and end - start <= 50:
+                        kakao_nums.extend([str(x) for x in range(start, end + 1)])
+                
+                kakao_nums.extend(re.findall(r"\d+(?:-\d+)?", first_line_clean))
+
+                # 🔥 DB 매물들과 AI 찰떡 매칭 (새로운 1등 뽑기 토너먼트 로직)
+                matching_candidates = []
                 for info in prop_info:
-                    # 카톡 텍스트 안에 엑셀 매물의 '호수'와 '앞 2글자'가 모두 들어있다면 매칭 성공!
-                    if info['unit'] in first_line_clean and info['short_base'] in first_line_clean:
-                        # 동이 기재되어 있는데 서로 다르면 패스 (예: A동 vs B동)
+                    db_num = info['unit'].replace("호", "")
+                    if db_num in kakao_nums:
                         if info['dong'] and kakao_dong and info['dong'] != kakao_dong:
                             continue
+                        matching_candidates.append(info)
+
+                if matching_candidates:
+                    # 1. 호수가 같은 후보들 중 가장 유사도가 높은(1등) 건물명 찾기
+                    best_ratio = 0.0
+                    best_base_name = ""
+                    
+                    for info in matching_candidates:
+                        ratio = difflib.SequenceMatcher(None, kakao_bldg_only, info['base_name_clean']).ratio()
+                        
+                        # 완전히 포함되면 무조건 1등 (1.0)
+                        if kakao_bldg_only and (kakao_bldg_only in info['base_name_clean'] or info['base_name_clean'] in kakao_bldg_only):
+                            ratio = 1.0
                             
-                        prop_id = info['id']
-                        if prop_id in latest_memos:
-                            existing_date, _ = latest_memos[prop_id]
-                            if section_date > existing_date:
-                                latest_memos[prop_id] = (section_date, block_content)
-                        else:
-                            latest_memos[prop_id] = (section_date, block_content)
+                        if ratio > best_ratio:
+                            best_ratio = ratio
+                            best_base_name = info['base_name_clean']
+
+                    # 2. 1등 건물의 유사도가 최소 50% 이상일 때만 메모 삽입 (타워 중복 오작동 방지)
+                    if best_ratio >= 0.5:
+                        for info in matching_candidates:
+                            # 1등 건물명과 일치하는 카드에만 메모 쏙! (오지랖 방지)
+                            if info['base_name_clean'] == best_base_name:
+                                prop_id = info['id']
+                                if prop_id in latest_memos:
+                                    existing_date, _ = latest_memos[prop_id]
+                                    if section_date > existing_date:
+                                        latest_memos[prop_id] = (section_date, block_content)
+                                else:
+                                    latest_memos[prop_id] = (section_date, block_content)
 
         # 5. 매칭된 메모 저장
         for prop_id, (msg_date, content) in latest_memos.items():
