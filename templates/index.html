@@ -5,7 +5,7 @@
 
 <div class="card info-box">
     <div>📅 최신화 날짜 : {{ upload_time }}</div>
-    <div>📦 전체 매물 수 : {{ properties|length }} 개</div>
+    <div>📦 전체 매물 수 : {{ pagination.total }} 개</div>
 </div>
 
 {% if mode == "sale" %}
@@ -120,7 +120,66 @@
 
 {% endfor %}
 
+<div class="pagination">
+    {% if pagination.has_prev %}
+        <a href="{{ url_for('index', page=pagination.prev_num, mode=request.args.get('mode', 'rent'), sort=request.args.get('sort', ''), property_type=request.args.get('property_type', '')) }}" class="page-btn">이전</a>
+    {% endif %}
 
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if p %}
+            {% if p == pagination.page %}
+                <span class="page-btn active">{{ p }}</span>
+            {% else %}
+                <a href="{{ url_for('index', page=p, mode=request.args.get('mode', 'rent'), sort=request.args.get('sort', ''), property_type=request.args.get('property_type', '')) }}" class="page-btn">{{ p }}</a>
+            {% endif %}
+        {% else %}
+            <span class="page-dots">...</span>
+        {% endif %}
+    {% endfor %}
+
+    {% if pagination.has_next %}
+        <a href="{{ url_for('index', page=pagination.next_num, mode=request.args.get('mode', 'rent'), sort=request.args.get('sort', ''), property_type=request.args.get('property_type', '')) }}" class="page-btn">다음</a>
+    {% endif %}
+</div>
+
+<style>
+/* ===== 페이지네이션 디자인 ===== */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 24px;
+    margin-bottom: 40px;
+}
+
+.page-btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.page-btn:hover {
+    background: #f3f4f6;
+}
+
+.page-btn.active {
+    background: #2d7ff9;
+    color: #fff;
+    border-color: #2d7ff9;
+}
+
+.page-dots {
+    color: #9ca3af;
+    font-weight: bold;
+}
+</style>
 
 
 <style>

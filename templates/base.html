@@ -427,7 +427,7 @@ select {
 
 .detail-line{
     display:flex;
-    align-items:center;
+    align-items:flex-end;   /* 🔥 하단 라인 맞춤 */
     gap:10px;
     flex-wrap:nowrap;
 }
@@ -454,10 +454,17 @@ select {
     gap:8px;
     align-items:flex-start;
     flex-shrink:0;
-    margin-top:0;
+    margin-left:auto;
+    margin-right:10px;   /* 🔥 우측 여백 추가 (약 20% 이동 효과) */
 }
 
 
+/* ===== 모바일 썸네일 1장만 표시 ===== */
+@media (max-width:800px){
+    .thumb-box img:nth-child(n+2){
+        display:none !important;
+    }
+}
 
 
 .thumb-img{
@@ -471,7 +478,7 @@ select {
     transition:transform .15s ease;
 
     display:block;          /* ✅ 베이스라인 여백 제거 */
-    margin-top:-8px;        /* ✅ 썸네일만 한칸 위로 */
+    margin-top:-22px;        /* ✅ 썸네일만 한칸 위로 */
 }
 
 
@@ -560,6 +567,7 @@ select {
     display:flex;
     gap:14px;
     align-items:center;
+    justify-content:center;   /* 🔥 중앙 정렬 추가 */
     margin-top:14px;
 }
 
@@ -781,6 +789,45 @@ select {
   .detail-row > .card{
     width:100% !important;
   }
+
+  .detail-row{
+    align-items:center !important;   /* 🔥 모바일 중앙 정렬 */
+  }
+
+    /* 🔥 모바일 월세/매매 목록 카드 간격 축소 */
+  .detail-row{
+    margin-top:6px !important;   /* 기존 14px → 6px */
+  }
+
+    /* ===== 모바일: 물건카드 타이포 80% 축소 ===== */
+
+  .property-card .title{
+    font-size:16.5px;
+    font-weight:700;
+    letter-spacing:-0.2px;
+    line-height:1.08;     /* 🔥 살짝 완화 */
+    margin-bottom:4px;    /* 🔥 아주 미세한 공간 */
+}
+
+  .property-card .price,
+  .price-inline{
+      font-size:17px;      /* 기존 21px → 17px */
+      font-weight:700;
+  }
+
+  .area-main{
+      font-size:14px;      /* 기존 18px → 14px */
+      font-weight:700;
+  }
+
+  .area-sub{
+      font-size:11px;      /* 기존 13px → 11px */
+  }
+
+  .property-card .detail{
+      font-size:12px;      /* 기존 13px → 12px */
+  }
+
 
 }
 
