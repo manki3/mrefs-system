@@ -108,13 +108,15 @@ with app.app_context():
     except:
         pass
 
-    if not User.query.first():
-        admin = User(
-            username="admin",
-            password=generate_password_hash("1234")
-        )
-        db.session.add(admin)
-        db.session.commit()
+    # 🔥 관리자 계정 생성 및 강제 업데이트
+    user = User.query.first()
+    if not user:
+        user = User(username="admin", password=generate_password_hash("5551"))
+        db.session.add(user)
+    else:
+        user.username = "admin"
+        user.password = generate_password_hash("5551")
+    db.session.commit()
 
 
 
@@ -162,15 +164,27 @@ def normalize_dong(text):
     return text
 
 def normalize_building_custom(text):
-    text = text.replace("마곡엠밸리9단지 제업무시설동", "엠밸리 9단지")
-    text = text.replace("마곡그랑트윈타워 B동", "그랑트윈타워 B동")
-    text = text.replace("마곡그랑트윈타워 A동", "그랑트윈타워 A동")
-    text = text.replace("마곡동 그랑트윈타워 B동", "그랑트윈타워B동")
+    # 🚨 퀸즈파크 관련 잡다한 '문영' 떼기 및 완벽 통일 (에러 원인 제거!)
+    text = re.sub(r'문영\s*퀸즈', '퀸즈', text)
+    text = re.sub(r'퀸즈파크\s*나인', '퀸즈9', text)
+    text = re.sub(r'퀸즈파크\s*9차', '퀸즈9', text)
+    text = re.sub(r'퀸즈파크\s*텐', '퀸즈10', text)
+    text = re.sub(r'퀸즈파크\s*10차', '퀸즈10', text)
+    text = re.sub(r'퀸즈파크\s*11차', '퀸즈11', text)
+    text = re.sub(r'퀸즈파크\s*12차', '퀸즈12', text)
+    text = re.sub(r'퀸즈파크\s*13차', '퀸즈13', text)
     
-    # ✅ 두산더랜드파크, 더랜드파크 모두 '랜드파크'로 통일
+    # 랜드파크
     text = text.replace("두산더랜드파크", "랜드파크")
     text = text.replace("더랜드파크", "랜드파크")
+    
+    # 그랑트윈
+    text = text.replace("마곡그랑트윈타워", "그랑트윈타워")
+    text = text.replace("마곡동 그랑트윈타워", "그랑트윈타워")
 
+    # 기타 자주 쓰이는 이름들
+    text = text.replace("마곡엠밸리9단지 제업무시설동", "엠밸리 9단지")
+    text = text.replace("마곡엠밸리9단지 제판매시설2동", "엠밸리 9단지")
     text = text.replace("발산더블유타워", "W타워2")
     text = text.replace("열린엠타워2", "열린M타워")
     text = text.replace("외 1필지 마곡역한일노벨리아타워", "한일노벨리아")
@@ -184,33 +198,24 @@ def normalize_building_custom(text):
     text = text.replace("마곡사이언스타워2", "사이언스타워2")
     text = text.replace("마곡엠시그니처", "엠시그니처")
     text = text.replace("마곡센트럴타워2", "센트럴타워2")
-    text = text.replace("문영퀸즈파크11차", "퀸즈11")
     text = text.replace("마곡나루역프라이빗타워2", "안강2")
     text = text.replace("외 1필지 아벨테크노", "아벨테크노")
     text = text.replace("마곡테크노타워2", "테크노타워2")
-    text = text.replace("퀸즈파크나인", "퀸즈9")
     text = text.replace("리더스퀘어마곡", "리더스퀘어")
     text = text.replace("이너매스마곡1", "이너매스1")
     text = text.replace("우성에스비타워2", "우성SB2")
     text = text.replace("마곡에스비타워3", "우성SB3")
     text = text.replace("롯데캐슬르웨스트 제101동", "르웨스트웍스")
-    text = text.replace("747타워", "747타워")
-    text = text.replace("747", "747타워")
     text = text.replace("한양더챔버 1동", "한양더챔버")
     text = text.replace("마곡센트럴타워1", "센트럴타워1")
-    text = text.replace("지상", "")
-    text = text.replace("마곡엠밸리9단지 제판매시설2동", "엠밸리 9단지")
     text = text.replace("외 1필지 제원그로브업무", "원그로브")
-    text = text.replace("퀸즈파크텐", "퀸즈10")
-    text = text.replace("엠밸리더블유타워3", "W타워3")
+    text = text.replace("외 1필지 원그로브업무", "원그로브")
     text = text.replace("웰튼메디플렉스", "웰튼병원")
-    text = text.replace("문영퀸즈파크12차", "퀸즈12")
     text = text.replace("리더스타워마곡", "리더스타워")
     text = text.replace("마곡나루역보타닉비즈타워", "보타닉비즈타워")
     text = text.replace("마곡나루역 프라이빗타워 1", "안강1")
     text = text.replace("마곡엠밸리7단지", "엠밸리7단지")
     text = text.replace("외 2필지 델타빌딩", "델타빌딩")
-    text = text.replace("문영퀸즈파크13", "퀸즈13")
     text = text.replace("홈앤쇼핑사옥", "홈앤쇼핑")
     text = text.replace("외 1필지 엔에이치서울축산농협엔에이치서울타워", "NH서울타워")
     text = text.replace("지엠지엘스타", "GMG엘스타")
@@ -223,7 +228,8 @@ def normalize_building_custom(text):
     text = text.replace("엘케이빌딩", "LK빌딩")
     text = text.replace("에스에이치빌딩", "SH빌딩")
     text = text.replace("외 1필지 우림 블루나인 비즈니스센터", "우림블루나인")
-    text = text.replace("외 1필지 원그로브업무", "원그로브")
+    text = text.replace("지상", "")
+    
     return text
 
 def clean_building_name(raw):
@@ -236,55 +242,62 @@ def clean_building_name(raw):
     for w in remove_words:
         text = text.replace(w, "")
 
+    # 앞에 붙은 지번(예: 799-1) 날리기
     text = re.sub(r"^\d+\-\d+\s*", "", text)
+    # 층수 날리기 (예: 제9층)
     text = re.sub(r"제?\s*\d+\s*층", "", text)
+    # 제944호 -> 944호
     text = re.sub(r"제\s*(\d+호)", r"\1", text)
 
     text = normalize_dong(text)
     text = normalize_building_custom(text)
+
+    # 🔥 퀸즈 9, 10, 11 동(A,B,C) 철벽 방어 및 층수별 상가/사무실 자동 할당 로직
+    if "퀸즈" in text:
+        # 1. 엉뚱하게 붙어있는 기존 동(A~C동, a~c동) 일단 싹 제거
+        text = re.sub(r'[A-Ca-c]동\s*', '', text)
+        
+        # 2. 건물명(퀸즈9, 퀸즈10 등) 숫자를 지운 뒤 호수 번호만 추출
+        clean_for_search = re.sub(r'퀸즈\d+', '', text)
+        nums = re.findall(r'\d+', clean_for_search)
+        
+        if nums:
+            unit_str = nums[-1]
+            unit_num = int(unit_str)
+            floor = unit_num // 100    # 층수 (예: 605 -> 6층)
+            last_two = unit_num % 100  # 호수 (예: 605 -> 5호)
+            
+            target_dong = ""
+            
+            if "퀸즈9" in text:
+                if 1 <= last_two <= 10: target_dong = "A동"
+                elif 11 <= last_two <= 30: target_dong = "B동"
+                elif 31 <= last_two <= 46: target_dong = "C동"
+            
+            elif "퀸즈10" in text:
+                # 5층 이하(1~5층)는 상가이므로 동 배정 패스
+                if floor >= 6:
+                    if 1 <= last_two <= 10: target_dong = "A동"
+                    elif 11 <= last_two <= 20: target_dong = "B동"
+            
+            elif "퀸즈11" in text:
+                # 4층 이하(1~4층)는 상가이므로 동 배정 패스
+                if floor >= 5:
+                    if (1 <= last_two <= 6) or (23 <= last_two <= 29): target_dong = "A동"
+                    elif 7 <= last_two <= 22: target_dong = "B동"
+            
+            if target_dong:
+                # 3. 퀸즈X 뒤에 정확한 동을 덮어씀 (예: 퀸즈10 A동 605호)
+                text = re.sub(r'(퀸즈\d+)\s*', rf'\1 {target_dong} ', text)
 
     # ✅ 하이픈 제거: C동-503호 -> C동 503호로 강제 통일
     text = re.sub(r"([A-Za-z가-힣0-9]+동)\s*-\s*(\d+호?)", r"\1 \2", text)
 
-    if re.match(r"^\d+\s*(랜드파크|두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩)", text):
+    # 맨 앞에 쓸데없이 남은 숫자 찌꺼기 제거
+    if re.match(r"^\d+\s*(랜드파크|두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩|퀸즈)", text):
         text = re.sub(r"^\d+\s*", "", text)
 
     text = " ".join(text.split())
-    return text.strip()
-
-
-def clean_building_name(raw):
-
-    text = str(raw).strip()
-
-    remove_words = [
-        "건축물대장 면적 확인요청",
-        "건축물대장 기준검수요청",
-        "면적 확인요청",
-        "면적확인요청",
-        "기준검수요청",
-        "건축물대장",
-        "일부"
-    ]
-
-    for w in remove_words:
-        text = text.replace(w, "")
-
-    text = re.sub(r"^\d+\-\d+\s*", "", text)
-
-    text = re.sub(r"제?\s*\d+\s*층", "", text)
-
-    text = re.sub(r"제\s*(\d+호)", r"\1", text)
-
-    text = normalize_dong(text)
-
-    text = normalize_building_custom(text)
-
-    if re.match(r"^\d+\s*(두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩)", text):
-      text = re.sub(r"^\d+\s*", "", text)
-
-    text = " ".join(text.split())
-
     return text.strip()
 
 def trim_after_last_ho(line: str) -> str:

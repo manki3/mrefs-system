@@ -1,32 +1,39 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card has-mobile-panel-padding">
+<div class="card"> 
 
   <div style="margin-bottom:14px;">
     <button type="button" onclick="history.back()" style="background:#fff; border:1px solid #ddd; padding:8px 16px; border-radius:8px; font-weight:bold; cursor:pointer; color:#555;">← 뒤로가기</button>
   </div>
 
-  <!-- 상단 한 줄 -->
-  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px;">
-
-    <div style="font-size:30px; font-weight:900; letter-spacing:-0.4px;">
+  <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+    
+    <div style="font-size: 22px; font-weight: 900; color: #222; line-height: 1.3; letter-spacing: -0.5px;">
       {{ p.building_name }}
     </div>
 
-    <div style="font-size:24px; font-weight:900; color:#2563eb; white-space:nowrap;">
-      {% if p.category == "매매" %}
-        매매 {{ format_sale_price_korean(p.sale_price) }}
-      {% else %}
-        임대 {{ p.deposit }}/{{ p.rent }}
-      {% endif %}
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+      <span style="background: #eef4ff; color: #2563eb; font-size: 14px; font-weight: 800; padding: 4px 10px; border-radius: 6px;">
+        {{ p.category }}
+      </span>
+      <span style="font-size: 26px; font-weight: 900; color: #111; letter-spacing: -0.5px;">
+        {% if p.category == "매매" %}
+          {{ format_sale_price_korean(p.sale_price) }}
+        {% else %}
+          {{ p.deposit }} / {{ p.rent }}
+        {% endif %}
+      </span>
     </div>
 
-  </div>
+    <div style="font-size: 15px; font-weight: 600; color: #6b7280; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <span>📏 전용 {{ p.exclusive_area }}평</span>
+      <span style="color: #d1d5db;">|</span>
+      <span>계약 {{ p.contract_area }}평</span>
+      <span style="color: #d1d5db;">|</span>
+      <span>🏢 {{ p.property_type }}</span>
+    </div>
 
-  <!-- 하단 정보 -->
-  <div style="margin-top:6px; font-size:16px; color:#555; font-weight:600;">
-    전용 {{ p.exclusive_area }}평
   </div>
 
 </div>
