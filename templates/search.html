@@ -49,6 +49,22 @@
 </div>
 
 <div class="form-row">
+    <label>매물옵션</label>
+    <div class="checkbox-group">
+        <label>
+            <input type="checkbox" name="opt_interior" value="on" {% if request.args.get('opt_interior') == 'on' %}checked{% endif %}> 룸 인테리어
+        </label>
+        <label>
+            <input type="checkbox" name="opt_gonghang" value="on" {% if request.args.get('opt_gonghang') == 'on' %}checked{% endif %}> 공항대로
+        </label>
+        <label>
+            <input type="checkbox" name="opt_corner" value="on" {% if request.args.get('opt_corner') == 'on' %}checked{% endif %}> 코너
+        </label>
+    </div>
+</div>
+
+
+<div class="form-row">
     <label>거래구분</label>
 
     <div class="checkbox-group">

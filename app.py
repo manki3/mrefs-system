@@ -59,8 +59,15 @@ class Property(db.Model):
     category = db.Column(db.String(20))
     status = db.Column(db.String(20), default='available')
     
-    # ✅ 추가된 비공개 메모 칸
+    category = db.Column(db.String(20))
+    status = db.Column(db.String(20), default='available')
+    
+    # ✅ 추가된 비공개 메모 및 옵션 칸
     private_memo = db.Column(db.Text)
+    has_interior = db.Column(db.Boolean, default=False)
+    has_gonghang = db.Column(db.Boolean, default=False)
+    has_corner = db.Column(db.Boolean, default=False)
+    
 
 
 class UploadLog(db.Model):
@@ -101,9 +108,16 @@ def load_user(user_id):
 with app.app_context():
     db.create_all()
     
-    # ✅ 기존 DB에 private_memo 컬럼을 안전하게 추가
+    # ✅ 기존 DB에 private_memo 및 옵션 컬럼들을 안전하게 추가
     try:
         db.session.execute(db.text('ALTER TABLE property ADD COLUMN private_memo TEXT'))
+        db.session.commit()
+    except:
+        pass
+    try:
+        db.session.execute(db.text('ALTER TABLE property ADD COLUMN has_interior BOOLEAN DEFAULT 0'))
+        db.session.execute(db.text('ALTER TABLE property ADD COLUMN has_gonghang BOOLEAN DEFAULT 0'))
+        db.session.execute(db.text('ALTER TABLE property ADD COLUMN has_corner BOOLEAN DEFAULT 0'))
         db.session.commit()
     except:
         pass
@@ -534,6 +548,9 @@ def search():
     category = request.args.get("category", "")
     sort = request.args.get("sort", "")
     property_type = request.args.get("property_type", "")
+    opt_interior = request.args.get("opt_interior", "")
+    opt_gonghang = request.args.get("opt_gonghang", "")
+    opt_corner = request.args.get("opt_corner", "")
 
     min_deposit = request.args.get("min_deposit", "")
     max_deposit = request.args.get("max_deposit", "")
@@ -574,6 +591,13 @@ def search():
         query = query.filter(Property.sale_price >= int(min_sale))
     if max_sale:
         query = query.filter(Property.sale_price <= int(max_sale))
+    # ✅ 옵션 필터 적용
+    if opt_interior == "on":
+        query = query.filter(Property.has_interior == True)
+    if opt_gonghang == "on":
+        query = query.filter(Property.has_gonghang == True)
+    if opt_corner == "on":
+        query = query.filter(Property.has_corner == True)    
 
     # 정렬 로직
     if sort == "rent_asc":
@@ -808,6 +832,22 @@ def register():
                 if is_out:
                     block_content = "🚨 [계약/아웃된 매물] " + block_content
 
+                # 🔥 1. 룸 인테리어 검사 (블록 전체 텍스트 기준)
+                opt_interior = False
+                if any(k in block_content.replace(" ", "") for k in ["룸", "인테리어", "탕비실", "에어컨"]):
+                    opt_interior = True
+                    
+                # 🔥 2. 코너, 공항 검사 (전용면적 괄호 안쪽 기준)
+                opt_gonghang = False
+                opt_corner = False
+                ex_match = re.search(r"전용.*?평\s*\((.*?)\)", block_content)
+                if ex_match:
+                    inside_parens = ex_match.group(1).replace(" ", "")
+                    if "공항" in inside_parens:
+                        opt_gonghang = True
+                    if "코너" in inside_parens:
+                        opt_corner = True
+
                 lines = block_content.split("\n")
                 first_line_raw = lines[0].strip()
                 first_line_clean = clean_building_name(first_line_raw).replace(" ", "").lower()
@@ -815,7 +855,7 @@ def register():
                 if not re.search(r"호$", first_line_clean) and re.search(r"\d+$", first_line_clean):
                     first_line_clean += "호"
 
-                # 🔥 카톡 텍스트에서 호수 뗀 순수 건물명 추출
+                # 카톡 텍스트에서 호수 뗀 순수 건물명 추출
                 kakao_bldg_only = re.sub(r"\d+(?:-\d+)?호.*$", "", first_line_clean)
 
                 kakao_dong_m = re.search(r"([a-z\d])동", first_line_clean)
@@ -830,7 +870,7 @@ def register():
                 
                 kakao_nums.extend(re.findall(r"\d+(?:-\d+)?", first_line_clean))
 
-                # 🔥 DB 매물들과 AI 찰떡 매칭 (새로운 1등 뽑기 토너먼트 로직)
+                # 🔥 DB 매물들과 AI 찰떡 매칭 (1등 뽑기 토너먼트 로직 최신화)
                 matching_candidates = []
                 for info in prop_info:
                     db_num = info['unit'].replace("호", "")
@@ -847,7 +887,6 @@ def register():
                     for info in matching_candidates:
                         ratio = difflib.SequenceMatcher(None, kakao_bldg_only, info['base_name_clean']).ratio()
                         
-                        # 완전히 포함되면 무조건 1등 (1.0)
                         if kakao_bldg_only and (kakao_bldg_only in info['base_name_clean'] or info['base_name_clean'] in kakao_bldg_only):
                             ratio = 1.0
                             
@@ -855,24 +894,27 @@ def register():
                             best_ratio = ratio
                             best_base_name = info['base_name_clean']
 
-                    # 2. 1등 건물의 유사도가 최소 50% 이상일 때만 메모 삽입 (타워 중복 오작동 방지)
+                    # 2. 1등 건물의 유사도가 최소 50% 이상일 때만 메모와 옵션 삽입
                     if best_ratio >= 0.5:
                         for info in matching_candidates:
-                            # 1등 건물명과 일치하는 카드에만 메모 쏙! (오지랖 방지)
                             if info['base_name_clean'] == best_base_name:
                                 prop_id = info['id']
+                                # 저장 데이터 형태: (날짜, 메모, 인테리어, 공항, 코너)
                                 if prop_id in latest_memos:
-                                    existing_date, _ = latest_memos[prop_id]
+                                    existing_date = latest_memos[prop_id][0]
                                     if section_date > existing_date:
-                                        latest_memos[prop_id] = (section_date, block_content)
+                                        latest_memos[prop_id] = (section_date, block_content, opt_interior, opt_gonghang, opt_corner)
                                 else:
-                                    latest_memos[prop_id] = (section_date, block_content)
+                                    latest_memos[prop_id] = (section_date, block_content, opt_interior, opt_gonghang, opt_corner)
 
-        # 5. 매칭된 메모 저장
-        for prop_id, (msg_date, content) in latest_memos.items():
+        # 5. 매칭된 메모 & 옵션 최종 저장
+        for prop_id, data in latest_memos.items():
             p = Property.query.get(prop_id)
             if p:
-                p.private_memo = content
+                p.private_memo = data[1]
+                p.has_interior = data[2]
+                p.has_gonghang = data[3]
+                p.has_corner = data[4]
 
         db.session.commit()
         return redirect(url_for("register", updated=1))
