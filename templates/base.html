@@ -51,8 +51,8 @@ body {
     }
 
     .menu a {
-        font-size: 16px;
-        padding: 16px 10px;
+        font-size: 18px; /* 🔥 모바일 글자 크기를 16px -> 18px 로 확대 */
+        padding: 14px 10px; /* 버튼 크기 유지를 위해 패딩 축소 */
     }
 
     .card {
@@ -91,11 +91,11 @@ body {
 
     .menu a[href="/collections"]{
         grid-column: 1 / -1;     /* 한 줄 전체 차지 */
-        height: 58px;            /* 위 버튼 높이와 균형 맞춤 */
+        height: 58px;            /* 위 버튼 높이와 균형 맞춤 (크기 고정) */
         display:flex;
         align-items:center;
         justify-content:center;
-        font-size:17px;
+        font-size: 20px; /* 🔥 내 리스트 글자 크기를 17px -> 20px 로 확대 */
         border-radius:14px;
     }
 
@@ -205,12 +205,12 @@ h2{
 
 .menu a {
     text-align: center;
-    padding: 14px 10px;
+    padding: 12px 10px; /* 버튼 덩치가 커지지 않게 패딩을 14에서 12로 축소 */
     background: #2d7ff9;
     color: white;
     border-radius: 10px;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 17px; /* 🔥 글자 크기를 14px -> 17px 로 대폭 확대 */
     font-weight: bold;
 }
 
@@ -302,7 +302,7 @@ select {
     }
 
     .menu a {
-        font-size: 12px;
+        font-size: 16px; /* 🔥 기존 12px은 너무 작아서 16px로 대폭 상향 */
     }
 
 
@@ -325,9 +325,8 @@ select {
     top: 50%;
     transform: translate(-50%, -50%);
 
-
-    width: 72px;
-    height: 72px;
+    width: 90px;  /* 🔥 기존 72px -> 90px 대폭 확대 */
+    height: 90px; /* 🔥 기존 72px -> 90px 대폭 확대 */
     border-radius: 50%;
 
     background: #ffd9a8;
@@ -337,7 +336,7 @@ select {
     align-items: center;
     justify-content: center;
 
-    font-size: 30px;
+    font-size: 42px; /* 🔥 돋보기 아이콘 크기 30px -> 42px 대폭 확대 */
 
     text-decoration: none;
 
@@ -367,8 +366,11 @@ select {
 
 @media (max-width:800px){
     .search-fab{
-        top: 24px;
+        top: 30px; /* 🔥 크기가 커진 만큼 살짝 아래로 위치 조정 */
         transform: translate(-50%, -50%);
+        width: 76px;  /* 🔥 모바일 화면 원 크기 확대 */
+        height: 76px; /* 🔥 모바일 화면 원 크기 확대 */
+        font-size: 34px; /* 🔥 모바일 돋보기 아이콘 크기 확대 */
     }
 }
 
