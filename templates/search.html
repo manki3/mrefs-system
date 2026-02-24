@@ -194,7 +194,15 @@
 <div class="detail-row">
 
     <!-- 매물 정보 카드 -->
-    <div class="card property-card {{ p.property_type }}" onclick="location.href='/property/{{ p.id }}'">
+    <div class="card property-card {{ p.property_type }}" onclick="location.href='/property/{{ p.id }}'" style="position: relative;">
+        
+        {% if p.private_memo %}
+        <div class="memo-tooltip" style="line-height: 1.6; font-size: 13px; text-align: left; width: 280px;">
+            <div style="font-weight: 800; margin-bottom: 6px; color: #ffd9a8;">📍 비공개메모</div>
+            <div style="white-space: pre-wrap; word-break: break-word;">{{ p.private_memo }}</div>
+        </div>
+        {% endif %}
+
         <div class="card-left">
             <div class="title">{{ p.building_name }}</div>
 

@@ -393,6 +393,7 @@ select {
 .property-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 22px rgba(0,0,0,0.14);
+    z-index: 50; /* 🔥 추가됨: 카드를 맨 앞으로 띄워서 툴팁이 짤리지 않게 함 */
 }
 
 /* 리스트담기 카드 개별 호버 */
@@ -851,6 +852,55 @@ select {
 }
 
 
+/* [추가] 매물 카드 호버 시 메모 툴팁 */
+.property-card {
+    position: relative; /* 툴팁 위치 기준점 */
+}
+
+.memo-tooltip {
+    display: none;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: rgba(45, 127, 249, 0.95); /* 포인트 컬러 활용 */
+    color: white;
+    padding: 10px 15px;
+    border-radius: 12px;
+    z-index: 999;
+    width: 220px;
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    pointer-events: none; /* 마우스 간섭 방지 */
+}
+
+/* 마우스를 올렸을 때만 보이게 함 */
+.property-card:hover .memo-tooltip {
+    display: block;
+}
+
+/* 모바일에서는 호버 기능이 없으므로 숨김 처리 */
+@media (max-width: 768px) {
+    .memo-tooltip { display: none !important; }
+}
+
+
+.memo-tooltip {
+    display: none;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    z-index: 999;
+    width: 200px;
+    font-size: 13px;
+    pointer-events: none;
+}
+.property-card:hover .memo-tooltip { display: block; }
+@media (max-width: 800px) { .memo-tooltip { display: none !important; } }
 
 </style>
 

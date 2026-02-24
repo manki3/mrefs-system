@@ -38,7 +38,27 @@
         <p>전체 매물 : {{ total_count }} 개</p>
         <p>월세 매물 : {{ rent_count }} 개</p>
         <p>매매 매물 : {{ sale_count }} 개</p>
-    </div>
+        
+        <div style="margin: 15px 0 5px 0;">
+            <span style="color: #d93025; cursor: pointer; font-weight: bold; border: 1px solid #d93025; padding: 5px 10px; border-radius: 5px; background-color: #fce8e6; display: inline-block;" onclick="toggleMissingMemoList()">
+                🚨 메모 누락: {{ missing_memo_props|length }}개 (클릭하여 목록 보기)
+            </span>
+        </div>
+
+        <div id="missingMemoList" style="display: none; background: #fce8e6; padding: 15px; border: 2px solid #d93025; margin-bottom: 10px; border-radius: 8px; max-height: 200px; overflow-y: auto;">
+            <strong style="color: #d93025;">📌 비공개 메모가 없는 매물</strong>
+            <ul style="margin-top: 10px; padding-left: 20px; color: #333; font-size: 14px;">
+                {% for p in missing_memo_props %}
+                    <li style="margin-bottom: 5px;">
+                        <strong>{{ p.building_name }}</strong> 
+                        ({{ p.category }} {{ p.deposit }}/{{ p.rent }}{% if p.category == '매매' %}{{ p.sale_price }}{% endif %})
+                    </li>
+                {% else %}
+                    <li style="color: #188038; font-weight: bold; list-style: none;">누락된 매물이 없습니다! 👏</li>
+                {% endfor %}
+            </ul>
+        </div>
+        </div>
 
     <div class="card" style="border: 2px solid #ff9f43;">
         <div class="section-title" style="border-left-color: #ff9f43; color: #d3761b; background: linear-gradient(to right, #fff4eb, transparent);">비공개 메모(TXT) 매칭</div>
@@ -165,6 +185,16 @@ document.addEventListener("DOMContentLoaded", function(){
         },3000);
     }
 });
+
+// 메모 누락 리스트 열고 닫는 함수
+function toggleMissingMemoList() {
+    var listDiv = document.getElementById("missingMemoList");
+    if (listDiv.style.display === "none") {
+        listDiv.style.display = "block";
+    } else {
+        listDiv.style.display = "none";
+    }
+}
 </script>
 
 {% endblock %}

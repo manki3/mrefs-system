@@ -40,7 +40,7 @@
 
 <div class="card" style="margin-top:18px; background:#fffbe9; border:1px solid #f1e2b8;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <div style="font-size:17px; font-weight:800; color:#b4850d;">🔒 비공개 메모 (임대인 정보 등)</div>
+    <div style="font-size:17px; font-weight:800; color:#b4850d;">🔒 비공개 메모</div>
     <button type="button" onclick="toggleMemoEdit()" style="background:none; border:none; color:#2d7ff9; font-weight:bold; cursor:pointer; font-size:15px;">수정</button>
   </div>
 
@@ -103,6 +103,27 @@ function savePropertyMemo() {
 }
 </script>
 
+<div class="card pc-only-add-box" style="margin-top:18px;">
+    <div style="font-size:16px; font-weight:800; color:#2d7ff9; margin-bottom:10px;">📋 내 리스트에 담기</div>
+    <form method="POST" action="/add_to_collection" class="detail-ajax-form" style="display:flex; gap:10px;">
+        <input type="hidden" name="property_id" value="{{ p.id }}">
+        <select name="collection_id" class="detail-collection-select" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+            {% for c in collections %}
+                <option value="{{ c.id }}" {% if existing_pairs and (p.id, c.id) in existing_pairs %}data-added="true"{% endif %}>
+                    {{ c.title }}
+                </option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="detail-add-btn" style="background:#2d7ff9; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">리스트 담기</button>
+    </form>
+</div>
+
+<style>
+/* 모바일에서는 PC 전용 담기 박스 숨김 */
+@media (max-width: 800px) {
+    .pc-only-add-box { display: none !important; }
+}
+</style>
 
 <div class="card" style="margin-top:18px; padding-bottom:100px;">
 
