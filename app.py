@@ -59,9 +59,6 @@ class Property(db.Model):
     category = db.Column(db.String(20))
     status = db.Column(db.String(20), default='available')
     
-    category = db.Column(db.String(20))
-    status = db.Column(db.String(20), default='available')
-    
     # ✅ 추가된 비공개 메모 및 옵션 칸
     private_memo = db.Column(db.Text)
     has_interior = db.Column(db.Boolean, default=False)
@@ -1169,8 +1166,6 @@ def collection_detail(id):
         if len(thumb_map[img.property_id]) < 2:
             thumb_map[img.property_id].append(img.file_path)
 
-    # ✅ for문이 완전히 끝난 뒤에 딱 한 번만 return 하도록 들여쓰기 조정
-    # ✅ 아래쪽에 있던 불필요한 중복 for문과 return문은 완전히 삭제하세요.
     return render_template(
         "collection_detail.html",
         collection=collection,
@@ -1178,20 +1173,6 @@ def collection_detail(id):
         sort=sort,
         thumb_map=thumb_map,
         format_sale_price_korean=format_sale_price_korean
-    )
-    
-
-
-    for item in items:
-        p = Property.query.get(item.property_id)
-        if p:
-            p.collection_item_id = item.id
-            properties.append(p)
-
-    return render_template(
-        "collection_detail.html",
-        collection=collection,
-        properties=properties
     )
 
 

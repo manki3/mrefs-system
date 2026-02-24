@@ -306,23 +306,6 @@ document.querySelectorAll('.ajax-form').forEach(form => {
 });
 
 
-// 셀렉트 박스 바꿀 때마다 버튼 상태 업데이트
-document.querySelectorAll('.collection-select').forEach(select => {
-    select.addEventListener('change', function() {
-        const btn = this.closest('form').querySelector('.add-btn');
-        const selectedOption = this.options[this.selectedIndex];
-        
-        if (selectedOption.dataset.added === "true") {
-            btn.innerText = "이미 담김";
-            btn.style.background = "#ccc";
-            btn.disabled = true;
-        } else {
-            btn.innerText = "리스트 담기";
-            btn.style.background = ""; // 기본색으로 복구
-            btn.disabled = false;
-        }
-    });
-});
 </script>
 
 
