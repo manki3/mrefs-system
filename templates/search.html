@@ -32,33 +32,30 @@
 
 <div class="form-row">
     <label>매물종류</label>
-
     <div class="checkbox-group">
         <label>
-            <input type="checkbox" name="property_type" value="상가"> 상가
+            <input type="checkbox" name="property_type" value="상가" {% if '상가' in request.args.getlist('property_type') %}checked{% endif %}> 상가
         </label>
-
         <label>
-            <input type="checkbox" name="property_type" value="사무실"> 사무실
+            <input type="checkbox" name="property_type" value="사무실" {% if '사무실' in request.args.getlist('property_type') %}checked{% endif %}> 사무실
         </label>
-
         <label>
-            <input type="checkbox" name="property_type" value="주거용"> 주거용
+            <input type="checkbox" name="property_type" value="주거용" {% if '주거용' in request.args.getlist('property_type') %}checked{% endif %}> 주거용
         </label>
     </div>
 </div>
 
 <div class="form-row">
-    <label>매물옵션</label>
+    <label>옵션</label>
     <div class="checkbox-group">
         <label>
-            <input type="checkbox" name="opt_interior" value="on" {% if request.args.get('opt_interior') == 'on' %}checked{% endif %}> 룸 인테리어
+            <input type="checkbox" name="opt_interior" value="on" {% if request.args.get('opt_interior') == 'on' %}checked{% endif %}> 룸/인테리어
         </label>
         <label>
-            <input type="checkbox" name="opt_gonghang" value="on" {% if request.args.get('opt_gonghang') == 'on' %}checked{% endif %}> 공항대로
+            <input type="checkbox" name="opt_gonghang" value="on" {% if request.args.get('opt_gonghang') == 'on' %}checked{% endif %}> 공항대로변
         </label>
         <label>
-            <input type="checkbox" name="opt_corner" value="on" {% if request.args.get('opt_corner') == 'on' %}checked{% endif %}> 코너
+            <input type="checkbox" name="opt_corner" value="on" {% if request.args.get('opt_corner') == 'on' %}checked{% endif %}> 코너양창
         </label>
     </div>
 </div>
@@ -69,11 +66,15 @@
 
     <div class="checkbox-group">
         <label>
-            <input type="checkbox" name="category" value="월세"> 월세
+            <input type="checkbox" name="category" value="월세"
+            {% if '월세' in request.args.getlist('category') %}checked{% endif %}>
+            월세
         </label>
 
         <label>
-            <input type="checkbox" name="category" value="매매"> 매매
+            <input type="checkbox" name="category" value="매매"
+            {% if '매매' in request.args.getlist('category') %}checked{% endif %}>
+            매매
         </label>
     </div>
 </div>

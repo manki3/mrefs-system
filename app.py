@@ -11,6 +11,10 @@ import zipfile
 import shutil
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from PIL import Image
+import io
+
+
 
 
 app = Flask(__name__)
@@ -31,6 +35,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 db = SQLAlchemy(app)
+# ✅ 마지막 엑셀 최신화 리포트(누락/파싱 실패 추적용)
+LAST_IMPORT_REPORT = None
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -45,6 +51,11 @@ class Property(db.Model):
     property_type = db.Column(db.String(50))
 
     id = db.Column(db.Integer, primary_key=True)
+
+    # ✅ 엑셀(포스) 매물 고유키
+    pos_id = db.Column(db.String(50), index=True)
+    # ✅ 카톡 TXT 최신 판정용 timestamp
+    source_ts = db.Column(db.DateTime)
 
     building_name = db.Column(db.String(200))
 
@@ -119,6 +130,13 @@ with app.app_context():
     except:
         pass
 
+    # ✅ 기존 DB에 source_ts 컬럼 안전하게 추가
+    try:
+        db.session.execute(db.text('ALTER TABLE property ADD COLUMN source_ts DATETIME'))
+        db.session.commit()
+    except:
+        pass
+
     # 🔥 관리자 계정 생성 및 강제 업데이트
     user = User.query.first()
     if not user:
@@ -151,23 +169,259 @@ def format_sale_price_korean(price):
             eok = price // 10000
             rest = price % 10000
             if rest == 0: return f"{eok}억"
-            else: return f"{eok}억{rest}"
+            # 뒤에 '만'을 붙여서 2억 300만 처럼 나오게 수정
+            else: return f"{eok}억 {rest}만"
         else:
-            return f"{price}"
+            return f"{price}만"
     except:
         return price
+    
+def safe_int_from_text(text):
+    if not text:
+        return 0
+
+    text = str(text).strip()
+
+    # 점만 있는 경우 방어
+    if text == ".":
+        return 0
+
+    match = re.search(r"\d+(?:\.\d+)?", text)
+    if match:
+        try:
+            return int(float(match.group()))
+        except:
+            return 0
+
+    return 0
+
+
+def safe_float_from_text(text):
+    """문자열에서 안전하게 float 추출 (예: '13.404.' -> 13.404)."""
+    if text is None:
+        return 0.0
+    s = str(text).strip()
+    if not s:
+        return 0.0
+    # 숫자 + (소수점)까지만 추출 (뒤에 붙는 '.' 같은 쓰레기 제거)
+    m = re.search(r"\d+(?:\.\d+)?", s)
+    if not m:
+        return 0.0
+    try:
+        return float(m.group(0))
+    except Exception:
+        return 0.0
+
+
+def building_name_from_private_memo(private_memo: str) -> str:
+    """
+    비공개메모에서 '...호'까지를 매물카드 건물명으로 사용
+    예: '르웨스트웍스 505호 호라는 글자까지가 건물명임 ...' -> '르웨스트웍스 505호'
+    """
+    if not private_memo:
+        return ""
+
+    s = str(private_memo).strip()
+    first = s.splitlines()[0].strip() if s.splitlines() else s
+
+    m = re.search(r"^(.+?\d+(?:-\d+)?호)", first)
+    if m:
+        return " ".join(m.group(1).split()).strip()
+
+    m2 = re.search(r"(.+?\d+(?:-\d+)?호)", s)
+    if m2:
+        return " ".join(m2.group(1).split()).strip()
+
+    return " ".join(first.split()).strip()
+
+
+def _guess_options_from_memo(memo_text: str):
+    t = re.sub(r"\s+", "", str(memo_text or ""))
+    has_interior = bool(re.search(r"(룸|인테리어|탕비실|에어컨|냉난방|스튜디오|강의실|뷰티|미용)", t))
+    has_gonghang = bool(re.search(r"(공항대로|공항)", t))
+    has_corner = bool(re.search(r"(코너|양창|북동|북서|남동|남서)", t))
+    return has_interior, has_gonghang, has_corner
+
+
+def _parse_price_from_pdf(deal_type: str, price_text: str):
+    s = (price_text or "").replace(",", "").replace(" ", "").strip()
+    deposit = rent = sale = 0
+
+    if deal_type == "월세":
+        if "/" in s:
+            left, right = s.split("/", 1)
+            deposit = safe_int_from_text(left)
+            rent = safe_int_from_text(right)
+        else:
+            deposit = safe_int_from_text(s)
+        return deposit, rent, 0
+
+    if deal_type == "매매":
+        sale = safe_int_from_text(s)
+        return 0, 0, sale
+
+    return 0, 0, 0
+
+
+def _cluster_rows_by_y(items, y_tol=16):
+    rows = []
+    for it in sorted(items, key=lambda z: (z["y"], z["x"])):
+        cy = it["y"] + it["h"] / 2
+        placed = False
+        for r in rows:
+            if abs(cy - r["cy"]) <= y_tol:
+                r["items"].append(it)
+                r["cy"] = (r["cy"] * r["n"] + cy) / (r["n"] + 1)
+                r["n"] += 1
+                placed = True
+                break
+        if not placed:
+            rows.append({"cy": cy, "n": 1, "items": [it]})
+    return rows
+
+
+def _text_in_xrange(row_items, x0, x1):
+    parts = []
+    for it in sorted(row_items, key=lambda z: z["x"]):
+        cx = it["x"] + it["w"] / 2
+        if x0 <= cx <= x1:
+            parts.append(it["text"])
+    s = " ".join(parts).strip()
+    return re.sub(r"\s+", " ", s)
+
+
+def extract_rows_from_pos_pdf(pdf_path: str):
+    """
+    포스 '매물인쇄' PDF(이미지 기반) → OCR → 표 row 추출
+    반환: [{property_type, area_m2, deal_type, price_text, private_memo}]
+    """
+    if fitz is None or pytesseract is None:
+        raise RuntimeError("PyMuPDF(fitz) 또는 pytesseract가 설치되지 않았습니다.")
+
+    doc = fitz.open(pdf_path)
+    all_rows = []
+
+    for pi in range(doc.page_count):
+        page = doc.load_page(pi)
+
+        # 확대 렌더(정확도↑)
+        mat = fitz.Matrix(2, 2)
+        pix = page.get_pixmap(matrix=mat, alpha=False)
+        img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
+
+        data = pytesseract.image_to_data(img, lang="kor+eng", output_type=pytesseract.Output.DICT)
+
+        items = []
+        n = len(data.get("text", []))
+        for i in range(n):
+            text = (data["text"][i] or "").strip()
+            if not text:
+                continue
+            try:
+                conf = float(data["conf"][i])
+            except:
+                conf = -1
+            if conf < 40:
+                continue
+            items.append({
+                "text": text,
+                "x": int(data["left"][i]),
+                "y": int(data["top"][i]),
+                "w": int(data["width"][i]),
+                "h": int(data["height"][i]),
+                "conf": conf
+            })
+
+        if not items:
+            continue
+
+        W, H = img.size
+        xr = lambda a: int(W * a)
+
+        # ✅ 포스 표 레이아웃(비율 기반)
+        X_PROPERTY_TYPE = (xr(0.09), xr(0.17))
+        X_AREA          = (xr(0.52), xr(0.60))
+        X_DEAL          = (xr(0.60), xr(0.66))
+        X_PRICE         = (xr(0.66), xr(0.74))
+        X_MEMO          = (xr(0.74), xr(0.99))
+
+        row_clusters = _cluster_rows_by_y(items, y_tol=16)
+
+        for r in row_clusters:
+            row_items = r["items"]
+            whole_line = " ".join([x["text"] for x in sorted(row_items, key=lambda z: z["x"])])
+
+            # 헤더/잡음 제거
+            if "매물인쇄" in whole_line:
+                continue
+            if "매물종류" in whole_line and "비공개메모" in whole_line:
+                continue
+            if "page" in whole_line.lower():
+                continue
+
+            property_type = convert_property_type(_text_in_xrange(row_items, *X_PROPERTY_TYPE))
+            area_text     = _text_in_xrange(row_items, *X_AREA)
+            deal_text     = _text_in_xrange(row_items, *X_DEAL)
+            price_text    = _text_in_xrange(row_items, *X_PRICE)
+            private_memo  = _text_in_xrange(row_items, *X_MEMO)
+
+            if not private_memo:
+                continue
+
+            deal_type = ""
+            if "월세" in deal_text:
+                deal_type = "월세"
+            elif "매매" in deal_text:
+                deal_type = "매매"
+            else:
+                deal_type = "월세" if "/" in (price_text or "") else ""
+
+            area_m2 = safe_float_from_text(area_text)
+
+            all_rows.append({
+                "property_type": property_type,
+                "area_m2": area_m2,
+                "deal_type": deal_type,
+                "price_text": price_text,
+                "private_memo": private_memo
+            })
+
+    return all_rows
+
+
+
 
 def normalize_dong(text):
+
+    # A동
     text = text.replace("제에이동", "A동").replace("에이동", "A동").replace("제A동", "A동").replace("제에이", "A동")
     text = text.replace("제오 에이", "A동").replace("제오에이", "A동")
+
+    # B동
     text = text.replace("제비동", "B동").replace("비동", "B동").replace("제B동", "B동").replace("제비", "B동")
-    # 제디동 완벽 처리
+
+    # 🔥 랜드파크 전용 패치 (오비 = B동)
+    if "랜드파크" in text:
+        text = text.replace("제오비동", "B동")
+        text = text.replace("오비동", "B동")
+        text = text.replace("제오비", "B동")
+        text = text.replace("오비", "B동")
+
+    # C동
     text = text.replace("제씨동", "C동").replace("씨동", "C동").replace("제C동", "C동").replace("제씨", "C동").replace("제오씨", "C동")
+
+    # 🔥 랜드파크 전용 패치 (오씨 = C동)
+    if "랜드파크" in text:
+        text = text.replace("오씨동", "C동")
+        text = text.replace("오씨", "C동")
+
+    # D동
     text = text.replace("제디동", "D동").replace("디동", "D동").replace("제D동", "D동").replace("제디", "D동")
+
     return text
 
 def normalize_building_custom(text):
-    # 🚀 류마타워 완벽 패치
+    # 🚀 류마타워 완벽 패치 (기존 유지)
     if "류마타워" in text:
         m = re.search(r"류마타워\s*([12])(?:차)?(?!\d)", text)
         if m:
@@ -175,7 +429,7 @@ def normalize_building_custom(text):
         else:
             text = re.sub(r"류마타워\s*", "류마타워1 ", text)
 
-    # 🚨 퀸즈파크 관련 잡다한 '문영' 떼기
+    # 🚨 퀸즈파크 관련 잡다한 '문영' 떼기 (기존 유지)
     text = re.sub(r'문영\s*퀸즈', '퀸즈', text)
     text = re.sub(r'퀸즈파크\s*나인', '퀸즈9', text)
     text = re.sub(r'퀸즈파크\s*9차', '퀸즈9', text)
@@ -185,19 +439,23 @@ def normalize_building_custom(text):
     text = re.sub(r'퀸즈파크\s*12차', '퀸즈12', text)
     text = re.sub(r'퀸즈파크\s*13차', '퀸즈13', text)
     
+    # [수정] 그랑트윈타워 및 주요 명칭 통일 (기존 유지 + 마곡동 제거 강화)
     text = text.replace("두산더랜드파크", "랜드파크")
     text = text.replace("더랜드파크", "랜드파크")
-    text = text.replace("마곡그랑트윈타워", "그랑트윈타워")
     text = text.replace("마곡동 그랑트윈타워", "그랑트윈타워")
+    text = text.replace("마곡그랑트윈타워", "그랑트윈타워")
+    # 🔥 마곡동 붙은 모든 그랑트윈 제거 (공백/붙임 모두 대응)
+    text = re.sub(r"마곡동\s*그랑트윈타워", "그랑트윈타워", text)
+    text = text.replace("마곡동그랑트윈타워", "그랑트윈타워")
     text = text.replace("747타워", "747").replace("747", "747타워")
 
-    # 🔥 소장님 특별 요청 패치 (595, 르웨스트, 홈앤쇼핑 철벽 매칭)
+    # 🔥 소장님 특별 요청 패치 (기존 유지)
     text = text.replace("마곡595", "595타워")
     text = re.sub(r"롯데캐슬\s*르웨스트.*", "르웨스트웍스", text)
     text = text.replace("홈앤쇼핑사옥", "홈앤쇼핑")
     text = text.replace("웰튼메디플렉스", "웰튼병원")
 
-    # 기타 자주 쓰이는 이름들
+    # 기타 자주 쓰이는 이름들 (소장님의 소중한 리스트 100% 유지)
     text = text.replace("마곡엠밸리9단지 제업무시설동", "엠밸리 9단지")
     text = text.replace("마곡엠밸리9단지 제판매시설2동", "엠밸리 9단지")
     text = text.replace("발산더블유타워", "W타워2")
@@ -239,28 +497,58 @@ def normalize_building_custom(text):
     text = text.replace("외 3필지 마곡아이파크디어반", "아이파크디어반")
     text = text.replace("쿠쿠마곡빌딩", "쿠쿠빌딩")
     text = text.replace("마곡보타닉파크프라자를", "보타닉파크프라자")
+    text = text.replace("마곡보타닉파크프라자", "보타닉파크프라자")
+
+    # 보타닉파크타워 1/2/3 -> 보타닉파크1/2/3 (TXT/엑셀/DB 매칭 통일)
+    text = re.sub(r"마곡보타닉파크타워\s*([123])\s*차?", r"보타닉파크\1", text)
+    text = re.sub(r"보타닉파크\s*타워\s*([123])\s*차?", r"보타닉파크\1", text)
+    text = re.sub(r"보타닉파크타워\s*([123])\s*차?", r"보타닉파크\1", text)
+    text = re.sub(r"보타닉파크\s*([123])\s*차", r"보타닉파크\1", text)
+
     text = text.replace("엘케이빌딩", "LK빌딩")
     text = text.replace("에스에이치빌딩", "SH빌딩")
     text = text.replace("외 1필지 우림 블루나인 비즈니스센터", "우림블루나인")
     text = text.replace("지상", "")
-    
+
+    # ✅ 리더스애비뉴 표기 통일 (애비뉴/에비뉴 + 마곡)
+    text = text.replace("리더스애비뉴마곡", "리더스애비뉴")
+    text = text.replace("리더스애비뉴 마곡", "리더스애비뉴")
+    text = text.replace("리더스에비뉴", "리더스애비뉴")
+
+    # ✅ 퀸즈파크 숫자 표기 통일 (공백/차 유무)
+    text = re.sub(r"퀸즈파크\s*9(?:차)?", "퀸즈9", text)
+    text = re.sub(r"퀸즈파크\s*10(?:차)?", "퀸즈10", text)
+    text = re.sub(r"퀸즈파크\s*11(?:차)?", "퀸즈11", text)
+    text = re.sub(r"퀸즈파크\s*12(?:차)?", "퀸즈12", text)
+    text = re.sub(r"퀸즈파크\s*13(?:차)?", "퀸즈13", text)
+
     return text
 
 def clean_building_name(raw):
     text = str(raw).strip()
+
+    # ✅ '일부/전체' 같은 구분 단어는 살려야 합니다. (층/일부/전체가 사라지면 웰튼병원 분류가 무너짐)
     remove_words = [
         "건축물대장 면적 확인요청", "건축물대장 기준검수요청",
         "면적 확인요청", "면적확인요청", "기준검수요청",
-        "건축물대장", "일부"
+        "건축물대장"
     ]
     for w in remove_words:
         text = text.replace(w, "")
 
     # 🔥 앞에 붙은 지번(예: 799-1 또는 747 단독) 완벽하게 날리기
     text = re.sub(r"^\d+(?:-\d+)?\s+", "", text)
-    
-    # 층수 날리기 (예: 제9층)
-    text = re.sub(r"제?\s*\d+\s*층", "", text)
+
+    # ✅ 층 표기 통일: "제 8층" / "8F" / "8f" → "8층"
+    text = re.sub(r"제\s*(\d+)\s*층", r"\1층", text)
+    text = re.sub(r"(\d+)\s*[Ff]\b", r"\1층", text)
+    text = re.sub(r"(\d+)\s*층", r"\1층", text)
+
+    # ✅ 단, "101호" 같이 '호수'가 명시된 경우에는 층은 중복일 수 있어 제거 (예: "1층 101호")
+    if re.search(r"\d+(?:-\d+)?호", text):
+        text = re.sub(r"(?:제\s*)?(?:[bB]\s*)?\d+\s*층", "", text)
+        text = re.sub(r"(?:[bB]\s*)?\d+\s*[Ff]\b", "", text)
+
     # 제944호 -> 944호
     text = re.sub(r"제\s*(\d+호)", r"\1", text)
 
@@ -287,9 +575,31 @@ def clean_building_name(raw):
                     if 1 <= last_two <= 10: target_dong = "A동"
                     elif 11 <= last_two <= 20: target_dong = "B동"
             elif "퀸즈11" in text:
-                if floor >= 5:
-                    if (1 <= last_two <= 6) or (23 <= last_two <= 29): target_dong = "A동"
-                    elif 7 <= last_two <= 22: target_dong = "B동"
+
+                # 1~4층은 상가 → 동구분 없음
+                if 1 <= floor <= 4:
+                    target_dong = ""
+
+                # 5층
+                elif floor == 5:
+                    if (1 <= last_two <= 6) or (23 <= last_two <= 29):
+                        target_dong = "A동"
+                    elif 7 <= last_two <= 22:
+                        target_dong = "B동"
+
+                # 6~11층
+                elif 6 <= floor <= 11:
+                    if (1 <= last_two <= 8) or (25 <= last_two <= 34):
+                        target_dong = "A동"
+                    elif 9 <= last_two <= 24:
+                        target_dong = "B동"
+
+                # 12층
+                elif floor == 12:
+                    if (1 <= last_two <= 8) or (19 <= last_two <= 23):
+                        target_dong = "A동"
+                    elif 9 <= last_two <= 18:
+                        target_dong = "B동"
             if target_dong:
                 text = re.sub(r'(퀸즈\d+)\s*', rf'\1 {target_dong} ', text)
 
@@ -297,7 +607,7 @@ def clean_building_name(raw):
     text = re.sub(r"([A-Za-z가-힣0-9]+동)\s*-\s*(\d+호?)", r"\1 \2", text)
 
     # 맨 앞에 쓸데없이 남은 숫자 찌꺼기 제거
-    if re.match(r"^\d+\s*(랜드파크|두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩|퀸즈|747타워)", text):
+    if re.match(r"^\d+\s*(랜드파크|두산더랜드파크|센트럴타워2|에이스타워1|마곡엠밸리9단지|힐스테이트에코마곡역|나인스퀘어|원그로브|엠밸리 9단지|놀라움|델타빌딩|홈앤쇼핑|르웨스트시티|SH빌딩|퀸즈|747타워|웰튼병원)", text):
         text = re.sub(r"^\d+\s*", "", text)
 
     text = " ".join(text.split())
@@ -463,17 +773,21 @@ def index():
 
     mode = request.args.get("mode", "rent")
     sort = request.args.get("sort", "")
-    property_type = request.args.get("property_type", "")
+    property_types = [pt for pt in request.args.getlist("property_type") if pt]
+    property_type = request.args.get("property_type", "").strip()  # ✅ index.html 오류 방지용
 
     query = Property.query
 
-    if property_type:
-        query = query.filter(Property.property_type == property_type)
+    # ✅ 변수 이름(property_types)과 검색 방식(.in_) 수정 완료
+    if property_types:
+        query = query.filter(Property.property_type.in_(property_types))
 
     if mode == "sale":
         query = query.filter_by(category="매매")
     else:
         query = query.filter_by(category="월세")
+
+    # 정렬 로직
 
     # 정렬 로직
     if sort == "rent_asc":
@@ -531,7 +845,14 @@ def index():
         pagination=pagination
     )
 
-
+@app.route("/delete_all")
+@login_required
+def delete_all():
+    # 매물 데이터 전체 삭제
+    Property.query.delete()
+    db.session.commit()
+    # 삭제 후 현재 매물 등록(register) 페이지로 새로고침하며 삭제 알림 표시
+    return redirect(url_for("register", deleted=1))
 
 
 @app.route("/search", methods=["GET"])
@@ -541,9 +862,9 @@ def search():
     query = Property.query
 
     building = request.args.get("building", "")
-    category = request.args.get("category", "")
+    categories = request.args.getlist("category")
     sort = request.args.get("sort", "")
-    property_type = request.args.get("property_type", "")
+    property_types = [pt for pt in request.args.getlist("property_type") if pt]  # ✅ 빈값 제거
     opt_interior = request.args.get("opt_interior", "")
     opt_gonghang = request.args.get("opt_gonghang", "")
     opt_corner = request.args.get("opt_corner", "")
@@ -560,13 +881,12 @@ def search():
     if building:
         query = query.filter(Property.building_name.like(f"%{building}%"))
 
-    if property_type:
-        query = query.filter(Property.property_type == property_type)
+    # ✅ 들여쓰기(띄어쓰기) 에러 완벽 해결
+    if property_types:
+        query = query.filter(Property.property_type.in_(property_types))
 
-    if category == "월세":
-        query = query.filter(Property.category == "월세")
-    elif category == "매매":
-        query = query.filter(Property.category == "매매")
+    if categories:
+        query = query.filter(Property.category.in_(categories))
 
     if min_deposit:
         query = query.filter(Property.deposit >= int(min_deposit))
@@ -652,442 +972,223 @@ def search():
     )
 
 
+def parse_kakao_text(text_data, target_property_type="사무실"):
+    lines = text_data.splitlines()
+    
+    latest_props = {}
+    current_title = None
+    current_raw_memo = []
+    current_status = 'available'
+    
+    from datetime import datetime, timedelta
+    current_date = datetime.now()
+    two_months_ago = current_date - timedelta(days=60)
+    
+    header_pattern = re.compile(r'^\[.+?\] \[(?:오전|오후) \d+:\d+\] (.+)')
+    date_pattern = re.compile(r'^-+ (\d{4})년 (\d{1,2})월 (\d{1,2})일')
+
+    for line in lines:
+        line = line.strip()
+        if not line or line == "메시지가 삭제되었습니다.":
+            continue
+
+        date_match = date_pattern.match(line)
+        if date_match:
+            current_date = datetime(int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3)))
+            continue
+
+        if line.startswith("---------------"):
+            continue
+
+        match = header_pattern.match(line)
+        if match:
+            if current_title:
+                latest_props[current_title] = {
+                    'building_name': current_title,
+                    'status': current_status,
+                    'raw_memo': current_raw_memo,
+                    'date': current_date
+                }
+
+            raw_title = match.group(1).strip()
+            
+            status = 'available'
+            if '아웃' in raw_title or '매도함' in raw_title or '완료' in raw_title:
+                status = 'out'
+            elif '보류' in raw_title:
+                status = 'hold'
+                
+            clean_title = re.sub(r'\*\*.*?\*\*|\*.*?\*|\[.*?\]', '', raw_title).strip()
+            
+            # 🔥 [핵심 1] 건물명을 무조건 영문 대문자로 변환 (sk -> SK, w타워 -> W타워) 🔥
+            clean_title = clean_title.upper()
+
+            current_title = clean_title
+            current_status = status
+            
+            # 🔥 [핵심 1] 비공개 메모의 첫 줄인 원문 내용도 대문자로 변환 🔥
+            current_raw_memo = [raw_title.upper()]
+            
+        elif current_title is not None:
+            # 🔥 [핵심 1] 메모 세부 내용들도 모두 대문자로 자동 변환하여 누적 🔥
+            upper_line = line.upper()
+            current_raw_memo.append(upper_line)
+            
+            if '아웃' in upper_line or '매도함' in upper_line or '완료' in upper_line:
+                current_status = 'out'
+            elif '보류' in upper_line:
+                current_status = 'hold'
+
+    if current_title:
+        latest_props[current_title] = {
+            'building_name': current_title,
+            'status': current_status,
+            'raw_memo': current_raw_memo,
+            'date': current_date
+        }
+
+    count = 0
+    
+    for p in latest_props.values():
+        
+        if p['date'] < two_months_ago:
+            continue
+
+        if p['status'] == 'out' or p['status'] == 'hold':
+            existing = Property.query.filter_by(building_name=p['building_name']).first()
+            if existing:
+                db.session.delete(existing)
+            continue 
+
+        body_text = '\n'.join(p['raw_memo'])
+        
+        exc_area, con_area = 0.0, 0.0
+        exc_match = re.search(r'전용\s*[:\s]*(\d+(?:\.\d+)?)', body_text)
+        if exc_match: exc_area = float(exc_match.group(1))
+            
+        con_match = re.search(r'계약\s*[:\s]*(\d+(?:\.\d+)?)', body_text)
+        if con_match: con_area = float(con_match.group(1))
+
+        deposit, rent = 0, 0
+        
+        body_text_for_rent = re.sub(r'(현|현재|기존)\s*(임대|임차)?\s*(조건|상태|내역|현황).*', '', body_text)
+        body_text_for_rent = re.sub(r'현임대\s*[:\s]*[\d,]+.*', '', body_text_for_rent)
+
+        rent_match = re.search(r'(?:임대|조건|보증금|월세|금액|가격|보/월|렌트|단기)[^\d\n]*([0-9\.,]+(?:억\s*)?[0-9,]*)\s*(?:만|만원)?\s*(?:/|월|월세|에)\s*(?:월|월세)?\s*([\d,]+)', body_text_for_rent)
+        
+        if not rent_match:
+            rent_match = re.search(r'^\s*([0-9\.,]+(?:억\s*)?[0-9,]*)\s*(?:만|만원)?\s*/\s*(?:월|월세)?\s*([\d,]+)\s*(?:만|만원)?\s*$', body_text_for_rent, re.MULTILINE)
+
+        if rent_match:
+            deposit_raw = rent_match.group(1).replace(',', '').replace(' ', '')
+            rent_raw = rent_match.group(2).replace(',', '').replace(' ', '')
+            rent = int(float(rent_raw))
+            
+            if '억' in deposit_raw:
+                parts = deposit_raw.split('억')
+                if parts[0]:
+                    deposit += int(float(parts[0]) * 10000)
+                if len(parts) > 1 and parts[1]:
+                    clean_p1 = parts[1].replace(',', '').strip()
+                    if clean_p1:
+                        deposit += int(clean_p1)
+            else:
+                deposit = int(float(deposit_raw))
+            
+        sale_price = 0
+        sale_match_eok = re.search(r'매매[^\d\n]*([\d\.,]+)\s*억(?:\s*([\d,]+))?', body_text)
+        sale_match_num = re.search(r'매매[^\d\n]*([1-9][\d,]{3,})', body_text)
+        
+        if sale_match_eok:
+            eok = float(sale_match_eok.group(1).replace(',', ''))
+            sale_price = int(eok * 10000)
+            if sale_match_eok.group(2):
+                man_str = sale_match_eok.group(2).replace(',', '').strip()
+                if man_str:
+                    sale_price += int(man_str)
+        elif sale_match_num:
+            sale_price = int(sale_match_num.group(1).replace(',', ''))
+
+        if deposit == 0 and rent == 0 and sale_price == 0:
+            continue
+
+        has_interior = bool(re.search(r'(룸|인테리어|파티션|가벽|회의실|대표실)', body_text))
+        has_corner = bool(re.search(r'(코너|양창)', body_text))
+        has_gonghang = bool(re.search(r'(공항)', body_text))
+
+        # 🔥 [핵심 2] 사용자가 누른 업로드 버튼(사무실/상가)에 따라 무조건 고정 분류 🔥
+        property_type = target_property_type
+            
+        category_val = '매매' if (sale_price > 0 and rent == 0) else '월세'
+
+        existing_prop = Property.query.filter_by(building_name=p['building_name']).first()
+
+        if existing_prop:
+            existing_prop.exclusive_area = exc_area
+            existing_prop.contract_area = con_area
+            existing_prop.deposit = deposit
+            existing_prop.rent = rent
+            existing_prop.sale_price = sale_price
+            existing_prop.status = p['status']
+            existing_prop.has_interior = has_interior
+            existing_prop.has_corner = has_corner
+            existing_prop.has_gonghang = has_gonghang
+            existing_prop.private_memo = body_text
+            existing_prop.category = category_val
+            existing_prop.property_type = property_type
+            existing_prop.source_ts = datetime.utcnow()
+        else:
+            new_property = Property(
+                building_name=p['building_name'],
+                exclusive_area=exc_area,
+                contract_area=con_area,
+                deposit=deposit,
+                rent=rent,
+                sale_price=sale_price,
+                status=p['status'],
+                has_interior=has_interior,
+                has_corner=has_corner,
+                has_gonghang=has_gonghang,
+                private_memo=body_text,
+                category=category_val,
+                property_type=property_type,
+                source_ts=datetime.utcnow()
+            )
+            db.session.add(new_property)
+        
+        count += 1
+        
+    db.session.commit()
+    return count
+
+
 @app.route("/register", methods=["GET", "POST"])
 @login_required
 def register():
-
-    # -------- 빠른 매물 등록 --------
-    if request.method == "POST" and request.form.get("form_type") == "quick":
-
-        raw_text = request.form.get("raw_text")
-
-        building, exclusive, contract, price = extract_info_from_text(raw_text)
-
-        category, deposit, rent, sale = parse_price_auto(price)
-
-        p = Property(
-            building_name=building,
-            exclusive_area=exclusive,
-            contract_area=contract,
-            deposit=deposit,
-            rent=rent,
-            sale_price=sale,
-            category=category,
-            property_type="사무실"
-        )
-
-        db.session.add(p)
-        db.session.commit()
-
-        return redirect(url_for("register"))
-
-
-    # -------- 엑셀 최신화 --------
-    if request.method == "POST" and request.form.get("form_type") == "excel":
-
-        file = request.files.get("file")
-        if not file:
-            return "파일이 전달되지 않았습니다"
-
-        filename = file.filename.lower()
-
-        if filename.endswith(".csv"):
-            # 🔥 엑셀 상단 공백 2줄 무시하고 정확히 읽어오기 (누락 원천차단)
-            file.seek(0)
-            try:
-                df = pd.read_csv(file, encoding="utf-8-sig", skiprows=2, dtype=str)
-                if "상세주소" not in df.columns:  # 혹시라도 양식이 다를 경우 대비
-                    file.seek(0)
-                    df = pd.read_csv(file, encoding="cp949", skiprows=2, dtype=str)
-            except:
-                file.seek(0)
-                df = pd.read_csv(file, encoding="cp949", dtype=str)
-        else:
-            df = pd.read_excel(file, dtype=str)
-
-        # 컬럼명 공백 완벽 제거
-        df.columns = df.columns.astype(str).str.strip()
-
-        def find_col(keyword):
-            for c in df.columns:
-                if keyword in c:
-                    return c
-            return None
-
-        col_address = find_col("주소")
-        col_exclusive = find_col("전용")
-        col_contract = find_col("계약")
-        col_type = find_col("종류")
-
-        if not col_address:
-            return "주소 컬럼을 찾지 못했습니다"
-
-        # 🔥 기존 데이터 전체 삭제 방지 (매물 증발 원흉 제거!)
-        current_excel_buildings = []
-
-        for _, row in df.iterrows():
-
-            # 🚀 류마타워 띄어쓰기 등 완벽 정제된 이름 쏙 가져오기
-            building = clean_building_name(row.get(col_address, ""))
-            if not building: continue
-            
-            current_excel_buildings.append(building)
-
-            deal_type = str(row.get("거래종류", "")).strip()
-            price_raw = str(row.get("매물가", "")).replace(",", "").strip()
-
-            deposit = 0
-            rent = 0
-            sale = 0
-
-            if deal_type == "월세":
-                if "/" in price_raw:
-                    left, right = price_raw.split("/", 1)
-                    deposit = int(left) if left.isdigit() else 0
-                    rent = int(right) if right.isdigit() else 0
-
-            elif deal_type == "매매":
-                sale = int(price_raw) if price_raw.isdigit() else 0
-
-            ex_area = to_pyung(row.get(col_exclusive, 0))
-            con_area = to_pyung(row.get(col_contract, 0))
-            prop_type = convert_property_type(row.get(col_type, "")).strip()
-
-            # ✅ 기존에 같은 호수가 있으면 덮어쓰기 (사진, 메모 절대 안날아감!)
-            existing_p = Property.query.filter_by(building_name=building).first()
-
-            if existing_p:
-                existing_p.exclusive_area = ex_area
-                existing_p.contract_area = con_area
-                existing_p.deposit = deposit
-                existing_p.rent = rent
-                existing_p.sale_price = sale
-                existing_p.category = deal_type
-                existing_p.property_type = prop_type
-            else:
-                p = Property(
-                    building_name=building,
-                    exclusive_area=ex_area,
-                    contract_area=con_area,
-                    deposit=deposit,
-                    rent=rent,
-                    sale_price=sale,
-                    category=deal_type,
-                    property_type=prop_type
-                )
-                db.session.add(p)
-
-        # 엑셀에 없는 옛날 매물 자동 정리
-        if current_excel_buildings:
-            outdated_properties = Property.query.filter(~Property.building_name.in_(current_excel_buildings)).all()
-            for op in outdated_properties:
-                db.session.delete(op)
-
-        db.session.commit()
-
-        return redirect(url_for("register", updated=1))
-
-
-    # -------- 비공개 메모(TXT) 매칭 업로드 (궁극의 찰떡 매칭 & 덮어쓰기) --------
-    if request.method == "POST" and request.form.get("form_type") == "memo_txt":
-        import difflib
+    if request.method == "POST":
+        form_type = request.form.get("form_type")
         
-        file = request.files.get("file")
-        if not file: return "파일이 없습니다."
-        
-        raw_bytes = file.read()
-        try:
-            text = raw_bytes.decode("utf-8")
-        except UnicodeDecodeError:
-            text = raw_bytes.decode("cp949", errors="ignore")
-
-        cutoff_date = datetime.now() - timedelta(days=365)
-        header_regex = r"(-+\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일.*?-+)"
-        parts = re.split(header_regex, text)
-        
-        if len(parts) < 2:
-            parts = ["", "--------------- 2025년 1월 1일 ---------------", text]
-
-        def norm_name(n):
-            n = str(n).replace(" ", "").lower()
-            n = re.sub(r"^\d+(-\d+)?\s*", "", n)
-            n = re.sub(r"제([a-z]?\d+호)", r"\1", n)
-            
-            synonyms = [
-                ("제지상", ""), ("제지1층", "b1층"), ("제지2층", "b2층"), ("제1층", "1층"),
-                ("제에이동", "a동"), ("제비동", "b동"), ("제씨동", "c동"), ("제디동", "d동"),
-                ("에이동", "a동"), ("비동", "b동"), ("씨동", "c동"), ("디동", "d동"),
-                ("마곡그랑트윈타워", "그랑트윈"), ("마곡그랑트윈", "그랑트윈"), ("그랑트윈타워", "그랑트윈"),
-                ("문영퀸즈파크13차", "퀸즈13"), ("문영퀸즈파크12차", "퀸즈12"),
-                ("문영퀸즈파크11차", "퀸즈11"), ("문영퀸즈파크10차", "퀸즈10"),
-                ("문영퀸즈파크9차", "퀸즈9"), ("퀸즈파크나인", "퀸즈9"), ("퀸즈파크9", "퀸즈9"),
-                ("이너매스마곡2", "이너매스2"), ("이너매스마곡1", "이너매스1"),
-                ("마곡센트럴타워1", "센트럴타워1"), ("마곡센트럴타워2", "센트럴타워2"),
-                ("발산더블유타워", "w타워"), ("엠밸리더블유타워4", "w타워4"),
-                ("우성에스비타워2", "우성sb2"), 
-                ("우성에스비타워", "우성sb1"), ("에스비타워", "우성sb1"), ("우성에스비", "우성sb1"), ("우성sb", "우성sb1"),
-                ("웰튼메디플렉스", "웰튼병원"), 
-                ("마곡595", "595타워"), # 🔥 마곡595 패치
-                ("롯데캐슬르웨스트", "르웨스트웍스"), ("롯데캐슬", "르웨스트웍스"), ("르웨스트", "르웨스트웍스"), # 🔥 르웨스트 패치
-                ("홈앤쇼핑사옥", "홈앤쇼핑"), # 🔥 홈앤쇼핑 패치
-                ("보타닉파크타워3", "보타닉파크3"), ("보타닉파크타워2", "보타닉파크2"), ("보타닉파크타워1", "보타닉파크1"),
-                ("두산더랜드파크", "랜드파크"), ("더랜드파크", "랜드파크")
-            ]
-            for old, new in synonyms:
-                n = n.replace(old, new)
-            return n
-
-        all_props = Property.query.all()
-        prop_info = []
-        for p in all_props:
-            if not p.building_name: continue
-            name_clean = norm_name(p.building_name)
-            
-            m = re.search(r"([a-z]?\d+(?:-\d+)?호)", name_clean)
-            db_unit = m.group(1).replace("호", "") if m else ""
-            
-            db_floor = ""
-            if db_unit:
-                fm = re.match(r"([a-z]?\d+)\d{2}$", db_unit)
-                if fm: db_floor = fm.group(1)
-                else: db_floor = db_unit
-            
-            base_clean = re.sub(r"[a-z]?\d+(?:-\d+)?호.*$", "", name_clean)
-            dong_m = re.search(r"([a-z\d])동", base_clean)
-            db_dong = dong_m.group(1) if dong_m else ""
-            
-            prop_info.append({
-                'id': p.id,
-                'unit': db_unit,
-                'floor': db_floor,
-                'base_name_clean': base_clean,
-                'dong': db_dong,
-                'ex_area': p.exclusive_area or 0,
-                'deposit': p.deposit or 0,
-                'rent': p.rent or 0,
-                'sale_price': p.sale_price or 0
-            })
-
-        latest_memos = {}
-
-        for i in range(1, len(parts), 2):
-            header = parts[i]
-            body = parts[i + 1] if i + 1 < len(parts) else ""
-
-            m = re.search(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", header)
-            if not m: continue
-            section_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-            if section_date < cutoff_date: continue
-
-            msgs = re.split(r"(?=\[[^\]]+\]\s*\[[^\]]+\]\s+)", body)
-
-            for msg in msgs:
-                block = msg.strip()
-                if not block: continue
-
-                block_content = re.sub(r"^\[[^\]]+\]\s*\[[^\]]+\]\s*", "", block).strip()
-                if not block_content or "메시지가 삭제되었습니다" in block_content: continue
+        # 🔥 [핵심 2] 업로드 버튼 종류에 따라 함수에 다른 값을 던져줌 🔥
+        if form_type in ["kakao_txt_office", "kakao_txt_commercial"]:
+            file = request.files.get("file")
+            if file and file.filename.endswith('.txt'):
+                text_data = file.read().decode('utf-8', errors='ignore')
                 
-                is_out = any(k in block_content.replace(" ","").lower() for k in ["아웃", "계약완료", "보류", "매도함", "계약됨"])
-                if is_out: block_content = "🚨 [계약/아웃된 매물] " + block_content
-
-                opt_interior = any(k in block_content.replace(" ", "") for k in ["룸", "인테리어", "탕비실", "에어컨"])
-                opt_gonghang, opt_corner = False, False
-                ex_match = re.search(r"전용.*?평\s*\((.*?)\)", block_content)
-                if ex_match:
-                    ip = ex_match.group(1).replace(" ", "")
-                    opt_gonghang = "공항" in ip
-                    opt_corner = "코너" in ip
-
-                lines = block_content.split("\n")
-                first_line_raw = lines[0].strip()
-                first_line_clean = norm_name(first_line_raw)
-
-                kakao_floor = ""
-                floor_m = re.search(r"([bB]?\d+)층", first_line_raw)
-                if floor_m: kakao_floor = floor_m.group(1).lower()
-
-                # 🔥 2. 호수나 층수 뒤에 붙은 "전체", "811호" 등의 찌꺼기를 날리고 완벽한 건물명만 추출 (홈앤쇼핑, 르웨스트 패치!)
-                kakao_bldg_only = re.sub(r"[a-zA-Z]?\d+(?:-\d+)?(?:호|층).*$", "", first_line_clean)
-                kakao_dong_m = re.search(r"([a-z\d])동", kakao_bldg_only)
-                kakao_dong = kakao_dong_m.group(1) if kakao_dong_m else ""
-
-                kakao_nums = []
-                found_units = re.findall(r"([a-z]?\d+)(?:-\d+)?", first_line_clean)
-                kakao_nums.extend(found_units)
-
-                kakao_ex, kakao_con, kakao_dep, kakao_rent, kakao_sale = 0.0, 0.0, 0, 0, 0
-                
-                xm = re.search(r"전용\s*[:]?\s*([0-9\.]+)", block_content)
-                if xm: 
-                    try:
-                        valid_num = re.search(r"\d+\.?\d*", xm.group(1))
-                        if valid_num: kakao_ex = float(valid_num.group())
-                    except: pass
-                
-                cm = re.search(r"계약\s*[:]?\s*([0-9\.]+)", block_content)
-                if cm: 
-                    try:
-                        valid_num = re.search(r"\d+\.?\d*", cm.group(1))
-                        if valid_num: kakao_con = float(valid_num.group())
-                    except: pass
-
-                def parse_money(txt):
-                    txt = str(txt).replace(",", "").replace(" ", "")
-                    if "억" in txt:
-                        pts = txt.split("억")
-                        eok_m = re.findall(r"\d+", pts[0])
-                        eok = int(eok_m[-1]) * 10000 if eok_m else 0
-                        rst_m = re.findall(r"\d+", pts[1]) if len(pts)>1 else []
-                        rst = int(rst_m[0]) if rst_m else 0
-                        return eok + rst
-                    ns = re.findall(r"\d+", txt)
-                    return int("".join(ns)) if ns else 0
-
-                # 🔥 월세: 괄호 및 한글 찌꺼기 완벽 제거 후 앞의 순수 금액만 추출
-                rent_m = re.search(r"임대\s*[:]?\s*([^\n]+)", block_content)
-                if rent_m:
-                    pr_str = rent_m.group(1)
-                    pr_str = re.sub(r"\(.*?\)", "", pr_str) # 1. (1300/95...) 같은 괄호 덩어리 삭제
-                    pr_str = re.sub(r"[^\d,/\s억]", "", pr_str) # 2. 숫자, /, 억, 쉼표, 공백 빼고 삭제 (조정가능 등 날림)
-                    pr_str = pr_str.strip()
-                    if "/" in pr_str:
-                        l, r = pr_str.split("/", 1)
-                        kakao_dep, kakao_rent = parse_money(l), parse_money(r)
-
-                # 🔥 매매: 월세와 동일하게 괄호 및 한글 제거 로직 적용
-                sale_m = re.search(r"매매\s*[:]?\s*([^\n]+)", block_content)
-                if sale_m: 
-                    s_str = sale_m.group(1)
-                    s_str = re.sub(r"\(.*?\)", "", s_str)
-                    s_str = re.sub(r"[^\d,/\s억]", "", s_str)
-                    kakao_sale = parse_money(s_str.strip())
-
-                matching_candidates = []
-                for info in prop_info:
-                    if info['dong'] and kakao_dong and info['dong'] != kakao_dong: continue
+                if form_type == "kakao_txt_office":
+                    inserted_count = parse_kakao_text(text_data, "사무실")
+                elif form_type == "kakao_txt_commercial":
+                    inserted_count = parse_kakao_text(text_data, "상가")
                     
-                    unit_match = False
-                    
-                    if info['unit'] and info['unit'] in kakao_nums:
-                        unit_match = True
-                    elif kakao_floor and info['floor'] == kakao_floor:
-                        unit_match = True
-                    elif not info['unit']:
-                        unit_match = True
-                    else:
-                        if kakao_ex > 0 and info['ex_area'] > 0 and abs(kakao_ex - info['ex_area']) <= 2.0:
-                            unit_match = True
-                        elif kakao_dep > 0 and info['deposit'] == kakao_dep and info['rent'] == kakao_rent:
-                            unit_match = True
-                        elif kakao_sale > 0 and info['sale_price'] == kakao_sale:
-                            unit_match = True
+                return redirect(url_for("register", updated="true"))
 
-                    if unit_match:
-                        matching_candidates.append(info)
-
-                if matching_candidates:
-                    best_ratio = 0.0
-                    best_base_name = ""
-                    for info in matching_candidates:
-                        ratio = difflib.SequenceMatcher(None, kakao_bldg_only, info['base_name_clean']).ratio()
-                        if kakao_bldg_only and (kakao_bldg_only in info['base_name_clean'] or info['base_name_clean'] in kakao_bldg_only):
-                            ratio = 1.0
-                        if ratio > best_ratio:
-                            best_ratio = ratio
-                            best_base_name = info['base_name_clean']
-
-                    if best_ratio >= 0.5:
-                        for info in matching_candidates:
-                            if info['base_name_clean'] == best_base_name:
-                                prop_id = info['id']
-                                
-                                update_data = {
-                                    'date': section_date,
-                                    'memo': block_content,
-                                    'opt_interior': opt_interior,
-                                    'opt_gonghang': opt_gonghang,
-                                    'opt_corner': opt_corner,
-                                    'ex_area': kakao_ex,
-                                    'con_area': kakao_con,
-                                    'deposit': kakao_dep,
-                                    'rent': kakao_rent,
-                                    'sale_price': kakao_sale
-                                }
-                                
-                                if prop_id in latest_memos:
-                                    if section_date > latest_memos[prop_id]['date']:
-                                        latest_memos[prop_id] = update_data
-                                else:
-                                    latest_memos[prop_id] = update_data
-
-        # 🔥 6. 엑셀(DB) 매물 카드에 TXT 정보 최우선 덮어쓰기!
-        for prop_id, data in latest_memos.items():
-            p = Property.query.get(prop_id)
-            if p:
-                p.private_memo = data['memo']
-                p.has_interior = data['opt_interior']
-                p.has_gonghang = data['opt_gonghang']
-                p.has_corner = data['opt_corner']
-                
-                if data['ex_area'] > 0: p.exclusive_area = data['ex_area']
-                if data['con_area'] > 0: p.contract_area = data['con_area']
-                if data['deposit'] > 0: p.deposit = data['deposit']
-                if data['rent'] > 0: p.rent = data['rent']
-                if data['sale_price'] > 0: p.sale_price = data['sale_price']
-                
-                if data['deposit'] > 0 or data['rent'] > 0:
-                    p.category = "월세"
-                elif data['sale_price'] > 0:
-                    p.category = "매매"
-
-        db.session.commit()
-        return redirect(url_for("register", updated=1))
-
-
-    # -------- GET --------
-    last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
-    upload_time = last_upload.upload_time if last_upload else "-"
-
-    properties = Property.query.order_by(Property.id.desc()).limit(50).all()
-
-    total_count = Property.query.count()
     rent_count = Property.query.filter_by(category="월세").count()
     sale_count = Property.query.filter_by(category="매매").count()
+    
+    return render_template("register.html", rent_count=rent_count, sale_count=sale_count)
 
-    # 🔥 추가: 메모가 아예 없는 매물만 싹 다 긁어오기
-    missing_memo_props = Property.query.filter(
-        (Property.private_memo == None) | (Property.private_memo == '')
-    ).all()
 
-    return render_template(
-        "register.html",
-        properties=properties,
-        upload_time=upload_time,
-        total_count=total_count,
-        rent_count=rent_count,
-        sale_count=sale_count,
-        missing_memo_props=missing_memo_props # HTML로 리스트 넘겨주기
-    )
 
    
-
-
-
-
-
-@app.route("/delete_all")
-@login_required
-def delete_all():
-
-    Property.query.delete()
-    db.session.commit()
-
-    return redirect(url_for("excel_upload"))
-
-
-
-
 
 
 @app.route("/collections")
@@ -1498,11 +1599,23 @@ def property_detail(id):
     )
 
 
-
+@app.route("/delete_all_memos", methods=["POST"])
+@login_required
+def delete_all_memos():
+    # 비공개 메모와, 메모 인식으로 자동 체크된 옵션들까지 모두 초기화
+    db.session.query(Property).update({
+        Property.private_memo: None,
+        Property.has_interior: False,
+        Property.has_gonghang: False,
+        Property.has_corner: False
+    })
+    db.session.commit()
+    
+    # 작업 완료 후, 버튼을 눌렀던 이전 페이지로 새로고침
+    return redirect(request.referrer or url_for('register'))
 
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
 
