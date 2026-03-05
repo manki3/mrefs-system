@@ -18,9 +18,18 @@ import io
 
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "static/uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# 📂 [수정] 네트워크 공유 폴더 경로 설정 (앞에 r을 꼭 붙여야 합니다!)
+UPLOAD_FOLDER = r"\\Desktop-afi1aev\포커스부동산\찍은사진"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# 폴더가 없으면 자동으로 생성
+import os
+if not os.path.exists(UPLOAD_FOLDER):
+    try:
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    except Exception as e:
+        print(f"네트워크 폴더 연결 실패: {e}")
 
 TEMP_FOLDER = "temp_zip"
 os.makedirs(TEMP_FOLDER, exist_ok=True)
@@ -1447,29 +1456,96 @@ def api_save_property_memo(id):
     return jsonify({"result": "ok", "memo": p.private_memo})
 
 
+import re
+from datetime import datetime
+from werkzeug.utils import secure_filename
+
 @app.route("/upload_images/<int:property_id>", methods=["POST"])
 @login_required
 def upload_images(property_id):
-
     files = request.files.getlist("images")
-
     if not files:
-        return "no files", 400
+        return jsonify({"result": "fail"}), 400
 
+    p = Property.query.get_or_404(property_id)
+    
+    def clean(text):
+        return re.sub(r'[\\/*?:"<>|]', "_", str(text)).strip()
+
+    full_name = p.building_name.strip() if p.building_name else "미분류"
+    base_dir = app.config["UPLOAD_FOLDER"]
+    
+    matched_dir = None
+    remaining_name = full_name
+
+    # --- 1단계: '찍은사진' 폴더와 그 안의 '1. 마곡역', '2. 발산역' 등을 뒤져서 건물명 찾기 ---
+    if os.path.exists(base_dir):
+        for root, dirs, _ in os.walk(base_dir):
+            # '찍은사진'과 그 안의 '1. 마곡역' 등 2단계까지만 탐색 (더 깊이 안 들어감)
+            rel_path = os.path.relpath(root, base_dir)
+            depth = 0 if rel_path == '.' else len(rel_path.split(os.sep))
+            if depth > 1:
+                dirs[:] = []
+                continue
+            
+            for d in dirs:
+                # '파인스퀘어 b동'이 '파인스퀘어' 폴더와 매칭되는지 확인
+                if full_name.lower().startswith(d.lower()):
+                    # 단어가 정확히 끝나는지 확인 ('파인'이 '파인스퀘어'에 잘못 걸리지 않게)
+                    next_idx = len(d)
+                    if next_idx == len(full_name) or full_name[next_idx] == ' ':
+                        matched_dir = os.path.join(root, d)
+                        remaining_name = full_name[next_idx:].strip()
+                        break
+            if matched_dir:
+                break
+
+    # 캡처에 없는 완전 새로운 건물이면 '찍은사진' 최상단에 생성
+    if not matched_dir:
+        parts = full_name.split()
+        b_name = clean(parts[0]) if parts else "미분류"
+        matched_dir = os.path.join(base_dir, b_name)
+        remaining_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+    # --- 2단계: 남은 글자(B동, 915호)를 대소문자 무시하고 매칭하며 폴더 생성 ---
+    current_dir = matched_dir
+    sub_parts = [clean(part) for part in remaining_name.split() if part]
+
+    for part in sub_parts:
+        if os.path.exists(current_dir):
+            existing_dirs = [d for d in os.listdir(current_dir) if os.path.isdir(os.path.join(current_dir, d))]
+            match_found = False
+            for ed in existing_dirs:
+                if ed.lower() == part.lower(): # B동 == b동 매칭 성공!
+                    current_dir = os.path.join(current_dir, ed)
+                    match_found = True
+                    break
+            if not match_found:
+                current_dir = os.path.join(current_dir, part)
+        else:
+            current_dir = os.path.join(current_dir, part)
+
+    # 최종 계산된 폴더(건물명/동/호수)가 없으면 생성
+    os.makedirs(current_dir, exist_ok=True)
+
+    # --- 3단계: 파일 저장 및 DB 연동 ---
     for file in files:
-        if file.filename == "":
-            continue
-
+        if file.filename == "": continue
+        
         filename = secure_filename(file.filename)
-        unique = f"{datetime.utcnow().timestamp()}_{filename}"
-        save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_name = f"{timestamp}_{filename}"
+        
+        # 실제 윈도우 네트워크 폴더에 파일 저장
+        save_path = os.path.join(current_dir, save_name)
         file.save(save_path)
 
-        img = PropertyImage(
-            property_id=property_id,
-            file_path="/" + save_path.replace("\\","/")
-        )
-        db.session.add(img)
+        # 사이트에서 사진을 띄우기 위한 가상 경로 변환
+        rel_path = os.path.relpath(save_path, app.config["UPLOAD_FOLDER"])
+        db_path = "/static/uploads/" + rel_path.replace("\\", "/")
+        
+        new_img = PropertyImage(property_id=property_id, file_path=db_path)
+        db.session.add(new_img)
 
     db.session.commit()
     return jsonify({"result": "ok"})
