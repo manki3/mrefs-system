@@ -22,7 +22,12 @@
             🏢 [사무실] 전용 매물 등록
         </p>
         <p style="font-size: 13px; color: #555; margin-bottom: 15px;">* 이 폼으로 올린 파일의 모든 매물은 '사무실'로 분류되며, 영어는 대문자로 통일됩니다.</p>
-        <input type="file" name="file" accept=".txt" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box;">
+        
+        <div class="drop-zone">
+            <span class="drop-text">📂 TXT 파일을 클릭해서 찾거나 이곳으로 드래그 하세요</span>
+            <input type="file" name="file" accept=".txt" required class="drop-input">
+        </div>
+
         <button type="submit" class="primary-btn" style="background: #2d7ff9; color: white;">사무실 매물로 일괄 등록</button>
     </form>
 </div>
@@ -34,7 +39,12 @@
             🏪 [상가] 전용 매물 등록
         </p>
         <p style="font-size: 13px; color: #555; margin-bottom: 15px;">* 이 폼으로 올린 파일의 모든 매물은 '상가'로 분류되며, 영어는 대문자로 통일됩니다.</p>
-        <input type="file" name="file" accept=".txt" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box;">
+        
+        <div class="drop-zone">
+            <span class="drop-text">📂 TXT 파일을 클릭해서 찾거나 이곳으로 드래그 하세요</span>
+            <input type="file" name="file" accept=".txt" required class="drop-input">
+        </div>
+
         <button type="submit" class="primary-btn" style="background: #e6c300; color: #333;">상가 매물로 일괄 등록</button>
     </form>
 </div>
@@ -52,22 +62,71 @@
 </div>
 
 <style>
-.primary-btn {
-    width: 100%; height: 45px; font-size: 16px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s;
+/* 드래그 앤 드롭 박스 디자인 */
+.drop-zone {
+    width: 100%; padding: 30px; border: 2px dashed #ccc; border-radius: 8px;
+    text-align: center; color: #777; background: #fafafa; cursor: pointer;
+    transition: 0.2s; box-sizing: border-box; margin-bottom: 15px; font-weight: bold;
 }
+.drop-zone.dragover { border-color: #2d7ff9; background: #eaf2ff; color: #2d7ff9; }
+.drop-input { display: none; /* 못생긴 기본 버튼 숨기기 */ }
+
+.primary-btn { width: 100%; height: 45px; font-size: 16px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
 .primary-btn:hover { opacity: 0.9; }
-.danger-btn {
-    display: block; width: 100%; padding: 14px 20px; background: #ff4d4f; color: white; font-size: 16px; border-radius: 10px; font-weight: bold; text-decoration: none; cursor: pointer; transition: 0.2s; text-align: center; box-sizing: border-box;
-}
+.danger-btn { display: block; width: 100%; padding: 14px 20px; background: #ff4d4f; color: white; font-size: 16px; border-radius: 10px; font-weight: bold; text-decoration: none; cursor: pointer; transition: 0.2s; text-align: center; box-sizing: border-box; }
 .danger-btn:hover { background: #cf1322; }
-.update-toast{
-    position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#2d7ff9; color:white; padding:12px 24px; border-radius:8px; font-weight:bold; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); animation: fadeout 3s forwards;
-}
-@keyframes fadeout {
-    0% { opacity: 1; top:20px; }
-    80% { opacity: 1; top:20px; }
-    100% { opacity: 0; top:-50px; }
-}
+.update-toast{ position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#2d7ff9; color:white; padding:12px 24px; border-radius:8px; font-weight:bold; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); animation: fadeout 3s forwards; }
+@keyframes fadeout { 0% { opacity: 1; top:20px; } 80% { opacity: 1; top:20px; } 100% { opacity: 0; top:-50px; } }
 </style>
+
+<script>
+// 드래그 앤 드롭 마법 스크립트 (모든 화면 공통)
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".drop-zone").forEach(zone => {
+        const input = zone.querySelector(".drop-input");
+        const text = zone.querySelector(".drop-text");
+
+        // 박스 클릭 시 파일 선택창 열기
+        zone.addEventListener("click", () => input.click());
+
+        // 마우스가 박스 위로 올라올 때 (색상 변경)
+        zone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            zone.classList.add("dragover");
+        });
+
+        // 마우스가 박스 밖으로 나갈 때 (원래 색상)
+        zone.addEventListener("dragleave", () => {
+            zone.classList.remove("dragover");
+        });
+
+        // 파일을 떨어뜨렸을 때
+        zone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            zone.classList.remove("dragover");
+            if (e.dataTransfer.files.length > 0) {
+                input.files = e.dataTransfer.files; // 인풋에 파일 강제 삽입
+                updateText(input, text);
+            }
+        });
+
+        // 클릭해서 파일을 선택했을 때
+        input.addEventListener("change", () => {
+            updateText(input, text);
+        });
+
+        // 파일 이름/개수 화면에 표시해주기
+        function updateText(input, textElement) {
+            if (input.files.length > 1) {
+                textElement.innerText = "✅ 선택된 파일: " + input.files.length + "개";
+                textElement.style.color = "#2d7ff9";
+            } else if (input.files.length === 1) {
+                textElement.innerText = "✅ 선택된 파일: " + input.files[0].name;
+                textElement.style.color = "#2d7ff9";
+            }
+        }
+    });
+});
+</script>
 
 {% endblock %}

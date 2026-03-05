@@ -160,13 +160,20 @@ function savePropertyMemo() {
 
 
     <form id="photo-upload-form" enctype="multipart/form-data">
-    <!-- ✅ 숨김 파일선택 input -->
-    <input id="photo-input" type="file" name="images" accept="image/*" multiple style="display:none;">
+    <div id="photo-drop-zone" style="width: 100%; padding: 40px 20px; border: 2px dashed #ccc; border-radius: 10px; text-align: center; background: #fafafa; cursor: pointer; margin-top: 15px; transition: 0.2s;">
+      
+      <div style="font-size: 34px; margin-bottom: 12px;">📸</div>
+      
+      <div id="photo-drop-text" style="font-size: 15px; font-weight: bold; color: #666; margin-bottom: 16px;">
+        여러 장의 사진을 쓱~ 드래그해서 놓거나
+      </div>
+      
+      <div style="display: inline-block; padding: 10px 24px; background: #2d7ff9; color: white; border-radius: 8px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(45,127,249,0.2);">
+        📂 내 PC에서 사진 선택
+      </div>
 
-    <!-- ✅ 버튼 하나만 노출 -->
-    <button type="button" id="photo-trigger" class="primary-btn" style="margin-top:10px;">
-      📷 사진 업로드
-    </button>
+      <input id="photo-input" type="file" name="images" accept="image/*" multiple style="display:none;">
+    </div>
   </form>
 
 
@@ -181,7 +188,8 @@ document.addEventListener("DOMContentLoaded", function(){
   const input = document.getElementById("photo-input");
   const gallery = document.querySelector(".gallery");
   const toast = document.getElementById("upload-toast");
-  const trigger = document.getElementById("photo-trigger");
+  const dropZone = document.getElementById("photo-drop-zone");
+  const dropText = document.getElementById("photo-drop-text");
 
   const modal = document.getElementById("photo-modal");
   const modalImg = document.getElementById("photo-modal-img");
@@ -321,20 +329,52 @@ modal.addEventListener("touchend", function(e){
     }, 1200);
   }
 
-  trigger.addEventListener("click", ()=> input.click());
+  // --- 드래그 앤 드롭 시각적 효과 ---
+  dropZone.addEventListener("click", () => input.click());
+  
+  dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "#2d7ff9";
+      dropZone.style.backgroundColor = "#eaf2ff";
+  });
+  
+  dropZone.addEventListener("dragleave", () => {
+      dropZone.style.borderColor = "#ccc";
+      dropZone.style.backgroundColor = "#fafafa";
+  });
+  
+  dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "#ccc";
+      dropZone.style.backgroundColor = "#fafafa";
+      
+      // 마우스로 파일을 떨어뜨리면 input 창에 파일을 강제로 넣어주고 업로드(change) 실행
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          input.files = e.dataTransfer.files;
+          input.dispatchEvent(new Event('change'));
+      }
+  });
 
+  // --- 실제 사진 업로드 (AJAX) ---
   input.addEventListener("change", async function(){
     if(!input.files || !input.files.length) return;
 
-    trigger.disabled = true;
-    trigger.innerText = "업로드 중...";
+    // 로딩 상태 표시
+    dropText.innerText = "⏳ 으쌰으쌰! 여러 장의 사진을 업로드 중입니다...";
+    dropZone.style.pointerEvents = "none"; // 업로드 중 클릭 방지
 
     const fd = new FormData();
     for(const f of input.files) fd.append("images", f);
 
     const res = await fetch("/upload_images/{{ p.id }}",{method:"POST",body:fd});
-    if(!res.ok){ alert("업로드 실패"); return; }
+    if(!res.ok){ 
+        alert("업로드 실패"); 
+        dropText.innerText = "📸 여기를 클릭하거나 여러 장의 사진을 쓱~ 드래그해서 놓으세요!";
+        dropZone.style.pointerEvents = "auto";
+        return; 
+    }
 
+    // 업로드 완료 후 화면(갤러리)에 사진 즉시 추가
     for(const f of input.files){
       const url = URL.createObjectURL(f);
       const img = document.createElement("img");
@@ -344,10 +384,12 @@ modal.addEventListener("touchend", function(e){
       img.addEventListener("click", openPhotoModal);
     }
 
-    input.value="";
+    input.value = "";
     showToast();
-    trigger.disabled=false;
-    trigger.innerText="📷 사진 업로드";
+    
+    // 상태 원상복구
+    dropText.innerText = "📸여러장의 사진을 쓱~ 드래그해서 놓거나";
+    dropZone.style.pointerEvents = "auto";
   });
 
   function getChecked(){

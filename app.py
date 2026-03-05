@@ -1063,8 +1063,22 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
         if p['status'] == 'out' or p['status'] == 'hold':
             existing = Property.query.filter_by(building_name=p['building_name']).first()
             if existing:
+                # 🔥 [자동 청소 로직] 아웃된 매물에 연결된 사진들을 폴더에서 찾아 완전히 삭제합니다.
+                orphan_images = PropertyImage.query.filter_by(property_id=existing.id).all()
+                for img in orphan_images:
+                    try:
+                        # 실제 컴퓨터(서버) 폴더에서 이미지 파일 삭제 (용량 확보)
+                        path = img.file_path.lstrip("/")
+                        if os.path.exists(path):
+                            os.remove(path)
+                    except:
+                        pass
+                    # DB에서 사진 기록 삭제
+                    db.session.delete(img)
+                
+                # 매물 데이터 삭제
                 db.session.delete(existing)
-            continue 
+            continue
 
         body_text = '\n'.join(p['raw_memo'])
         
