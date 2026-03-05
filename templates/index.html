@@ -308,5 +308,51 @@ document.querySelectorAll('.ajax-form').forEach(form => {
 
 </script>
 
+<div style="text-align: center; margin-top: 30px; margin-bottom: 50px; font-size: 15px;">
+    
+    {% if pagination.has_prev %}
+        <a href="javascript:void(0);" onclick="goToPage({{ pagination.prev_num }})" style="padding: 8px 14px; border: 1px solid #ddd; background: white; border-radius: 6px; text-decoration: none; color: #555; font-weight: bold; margin: 0 3px; display: inline-block;">&laquo; 이전</a>
+    {% endif %}
+    
+    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if page_num %}
+            {% if page_num == pagination.page %}
+                <span style="padding: 8px 14px; border: 1px solid #2d7ff9; background: #2d7ff9; color: white; border-radius: 6px; font-weight: bold; margin: 0 3px; display: inline-block; box-shadow: 0 2px 4px rgba(45,127,249,0.3);">{{ page_num }}</span>
+            {% else %}
+                <a href="javascript:void(0);" onclick="goToPage({{ page_num }})" style="padding: 8px 14px; border: 1px solid #ddd; background: white; border-radius: 6px; text-decoration: none; color: #555; margin: 0 3px; display: inline-block; transition: 0.2s;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'">{{ page_num }}</a>
+            {% endif %}
+        {% else %}
+            <span style="padding: 8px 5px; color: #aaa; margin: 0 3px; display: inline-block;">...</span>
+        {% endif %}
+    {% endfor %}
+
+    {% if pagination.has_next %}
+        <a href="javascript:void(0);" onclick="goToPage({{ pagination.next_num }})" style="padding: 8px 14px; border: 1px solid #ddd; background: white; border-radius: 6px; text-decoration: none; color: #555; font-weight: bold; margin: 0 3px; display: inline-block;">다음 &raquo;</a>
+    {% endif %}
+
+</div>
+
+<script>
+// [기능 1] 기존 검색 조건(필터)은 그대로 유지하면서 페이지만 넘겨주는 함수
+function goToPage(pageNum) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('page', pageNum);
+    window.location.search = urlParams.toString();
+}
+
+// [기능 2] 화면 떨림/초기화 방지: 검색이나 클릭 시 현재 스크롤 위치를 브라우저에 몰래 저장
+window.addEventListener('beforeunload', function() {
+    sessionStorage.setItem('scrollPosition', window.scrollY);
+});
+
+// [기능 3] 화면이 새로고침 되면 아까 저장해둔 스크롤 위치로 0.1초만에 순간이동
+window.addEventListener('load', function() {
+    if(sessionStorage.getItem('scrollPosition') !== null) {
+        window.scrollTo(0, parseInt(sessionStorage.getItem('scrollPosition')));
+        sessionStorage.removeItem('scrollPosition'); // 복구 후 찌꺼기 삭제
+    }
+});
+</script>
+
 
 {% endblock %}

@@ -734,4 +734,46 @@ document.addEventListener("DOMContentLoaded", function(){
 </style>
 
 
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.detail-ajax-form, .ajax-form').forEach(form => {
+        const btn = form.querySelector('button[type="submit"]');
+        const select = form.querySelector('select');
+        
+        if(!btn || !select) return;
+
+        function updateBtn() {
+            const opt = select.options[select.selectedIndex];
+            if(opt && opt.dataset.added === "true") {
+                btn.innerText = "이미 담김";
+                btn.style.background = "#ccc";
+                btn.disabled = true;
+            } else {
+                btn.innerText = "리스트 담기";
+                btn.style.background = "#2d7ff9";
+                btn.disabled = false;
+            }
+        }
+
+        updateBtn();
+        select.addEventListener('change', updateBtn);
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if(btn.disabled) return;
+
+            fetch(form.action, { method: 'POST', body: new FormData(form) })
+            .then(res => {
+                if(res.ok) {
+                    select.options[select.selectedIndex].dataset.added = "true";
+                    updateBtn();
+                    alert("리스트에 성공적으로 담겼습니다!");
+                }
+            });
+        });
+    });
+});
+</script>
+
+
 {% endblock %}

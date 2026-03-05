@@ -169,10 +169,13 @@ body {
 }
 
 body {
-    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f6f8;
     margin: 0;
     padding: 0;
-    background: #f5f6f8;
+    /* 🔥 화면 떨림 방지 마법의 코드 🔥 */
+    overflow-y: scroll; /* 스크롤바가 항상 보이게 고정해서 화면 밀림 방지 */
+    padding-bottom: 200px; /* 맨 아래 매물도 툴팁이 넉넉하게 뜰 수 있도록 하단 여백 듬뿍 추가 */
 }
 
 .container {

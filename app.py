@@ -941,7 +941,9 @@ def search():
     elif sort == "area_desc":
         query = query.order_by(Property.exclusive_area.desc())
 
-    results = query.all()
+    page = request.args.get('page', 1, type=int)
+    pagination = query.paginate(page=page, per_page=30, error_out=False)
+    results = pagination.items
 
     last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
     upload_time = last_upload.upload_time if last_upload else "-"
@@ -968,7 +970,8 @@ def search():
         existing_pairs=existing_pairs,
         format_sale_price_korean=format_sale_price_korean,
         upload_time=upload_time,
-        thumb_map=thumb_map
+        thumb_map=thumb_map,
+        pagination=pagination  # 🔥 화면에 페이지 버튼을 띄우기 위해 변수 전달! 
     )
 
 
@@ -986,6 +989,8 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
     
     header_pattern = re.compile(r'^\[.+?\] \[(?:오전|오후) \d+:\d+\] (.+)')
     date_pattern = re.compile(r'^-+ (\d{4})년 (\d{1,2})월 (\d{1,2})일')
+
+    out_keywords = ['아웃', '매도함', '계약완료', '거래완료', '임대완료', '매매완료', '계약됨', '거래됨', '계약진행중']
 
     for line in lines:
         line = line.strip()
@@ -1011,32 +1016,32 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
                 }
 
             raw_title = match.group(1).strip()
+            upper_title = raw_title.upper()
             
+            # 띄어쓰기 무시하고 아웃 키워드 검사 (예: "계약 완료" -> "계약완료")
+            upper_title_no_space = upper_title.replace(" ", "")
+
             status = 'available'
-            if '아웃' in raw_title or '매도함' in raw_title or '완료' in raw_title:
+            if any(k in upper_title_no_space for k in out_keywords):
                 status = 'out'
-            elif '보류' in raw_title:
+            elif '보류' in upper_title_no_space:
                 status = 'hold'
                 
             clean_title = re.sub(r'\*\*.*?\*\*|\*.*?\*|\[.*?\]', '', raw_title).strip()
-            
-            # 🔥 [핵심 1] 건물명을 무조건 영문 대문자로 변환 (sk -> SK, w타워 -> W타워) 🔥
             clean_title = clean_title.upper()
 
             current_title = clean_title
             current_status = status
-            
-            # 🔥 [핵심 1] 비공개 메모의 첫 줄인 원문 내용도 대문자로 변환 🔥
             current_raw_memo = [raw_title.upper()]
             
         elif current_title is not None:
-            # 🔥 [핵심 1] 메모 세부 내용들도 모두 대문자로 자동 변환하여 누적 🔥
             upper_line = line.upper()
+            upper_line_no_space = upper_line.replace(" ", "")
             current_raw_memo.append(upper_line)
             
-            if '아웃' in upper_line or '매도함' in upper_line or '완료' in upper_line:
+            if any(k in upper_line_no_space for k in out_keywords):
                 current_status = 'out'
-            elif '보류' in upper_line:
+            elif '보류' in upper_line_no_space:
                 current_status = 'hold'
 
     if current_title:
@@ -1051,6 +1056,7 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
     
     for p in latest_props.values():
         
+        # ⚠️ [주의] 오늘 기준 60일(두 달) 이전의 과거 대화는 삭제됨!
         if p['date'] < two_months_ago:
             continue
 
@@ -1063,10 +1069,11 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
         body_text = '\n'.join(p['raw_memo'])
         
         exc_area, con_area = 0.0, 0.0
-        exc_match = re.search(r'전용\s*[:\s]*(\d+(?:\.\d+)?)', body_text)
+        # 🔥 [핵심 수정 1] '실평수', '전용면적' 등 다양한 면적 단어 완벽 인식
+        exc_match = re.search(r'(?:전용|실평수|실면적|전용면적|실평)\s*[:\s]*(\d+(?:\.\d+)?)', body_text)
         if exc_match: exc_area = float(exc_match.group(1))
             
-        con_match = re.search(r'계약\s*[:\s]*(\d+(?:\.\d+)?)', body_text)
+        con_match = re.search(r'(?:계약|분양면적|분양평수|계약면적|분양)\s*[:\s]*(\d+(?:\.\d+)?)', body_text)
         if con_match: con_area = float(con_match.group(1))
 
         deposit, rent = 0, 0
@@ -1074,10 +1081,11 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
         body_text_for_rent = re.sub(r'(현|현재|기존)\s*(임대|임차)?\s*(조건|상태|내역|현황).*', '', body_text)
         body_text_for_rent = re.sub(r'현임대\s*[:\s]*[\d,]+.*', '', body_text_for_rent)
 
-        rent_match = re.search(r'(?:임대|조건|보증금|월세|금액|가격|보/월|렌트|단기)[^\d\n]*([0-9\.,]+(?:억\s*)?[0-9,]*)\s*(?:만|만원)?\s*(?:/|월|월세|에)\s*(?:월|월세)?\s*([\d,]+)', body_text_for_rent)
+        # 🔥 [핵심 수정 2] 슬래시(/) 외에도 '에', '월' 등 다양한 기호로 구분된 월세도 구출!
+        rent_match = re.search(r'(?:임대|조건|보증금|월세|금액|가격|보/월|렌트|단기)[^\d\n]*([0-9\.,]+(?:억\s*)?[0-9,]*)\s*(?:만|만원)?\s*(?:/|에|월|월세)\s*(?:월|월세)?\s*([\d,]+)', body_text_for_rent)
         
         if not rent_match:
-            rent_match = re.search(r'^\s*([0-9\.,]+(?:억\s*)?[0-9,]*)\s*(?:만|만원)?\s*/\s*(?:월|월세)?\s*([\d,]+)\s*(?:만|만원)?\s*$', body_text_for_rent, re.MULTILINE)
+            rent_match = re.search(r'([0-9\.,]+(?:억\s*)?[0-9,]*)\s*(?:만|만원)?\s*(?:/|에)\s*(?:월|월세)?\s*([\d,]+)', body_text_for_rent)
 
         if rent_match:
             deposit_raw = rent_match.group(1).replace(',', '').replace(' ', '')
@@ -1094,10 +1102,22 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
                         deposit += int(clean_p1)
             else:
                 deposit = int(float(deposit_raw))
-            
+        else:
+            jeonse_match = re.search(r'전세[^\d\n]*([0-9\.,]+(?:억\s*)?[0-9,]*)', body_text_for_rent)
+            if jeonse_match:
+                j_raw = jeonse_match.group(1).replace(',', '').replace(' ', '')
+                if '억' in j_raw:
+                    parts = j_raw.split('억')
+                    if parts[0]: deposit += int(float(parts[0]) * 10000)
+                    if len(parts) > 1 and parts[1]:
+                        clean_p1 = parts[1].strip()
+                        if clean_p1: deposit += int(clean_p1)
+                else:
+                    deposit = int(float(j_raw))
+
         sale_price = 0
-        sale_match_eok = re.search(r'매매[^\d\n]*([\d\.,]+)\s*억(?:\s*([\d,]+))?', body_text)
-        sale_match_num = re.search(r'매매[^\d\n]*([1-9][\d,]{3,})', body_text)
+        sale_match_eok = re.search(r'(?:매매|매도|분양|분양가)[^\d\n]*([\d\.,]+)\s*억(?:\s*([\d,]+))?', body_text)
+        sale_match_num = re.search(r'(?:매매|매도|분양|분양가)[^\d\n]*([1-9][\d,]{3,})', body_text)
         
         if sale_match_eok:
             eok = float(sale_match_eok.group(1).replace(',', ''))
@@ -1109,14 +1129,15 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
         elif sale_match_num:
             sale_price = int(sale_match_num.group(1).replace(',', ''))
 
-        if deposit == 0 and rent == 0 and sale_price == 0:
+        # 🔥 [가장 중요한 핵심 3] 구명조끼 로직 🔥
+        # 가격 파악에 실패해서 0원이 되더라도, '면적(전용,실평수)'이 0이 아니면 버리지 않고 100% 등록함!
+        if deposit == 0 and rent == 0 and sale_price == 0 and exc_area == 0.0:
             continue
 
         has_interior = bool(re.search(r'(룸|인테리어|파티션|가벽|회의실|대표실)', body_text))
         has_corner = bool(re.search(r'(코너|양창)', body_text))
         has_gonghang = bool(re.search(r'(공항)', body_text))
 
-        # 🔥 [핵심 2] 사용자가 누른 업로드 버튼(사무실/상가)에 따라 무조건 고정 분류 🔥
         property_type = target_property_type
             
         category_val = '매매' if (sale_price > 0 and rent == 0) else '월세'
