@@ -1,6 +1,14 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import case
+from sqlalchemy import func, or_, case
+# 위치별 건물명 분류 기준
+LOCATION_MAPPING = {
+    '마곡역': ['홈앤쇼핑', '류마타워1', '747타워', '퀸즈13', '595타워', '한일노벨리아', '엠비즈타워', '메가타워', 'W타워4', '엠시그니처', '류마타워2', '에이스타워2', '우성SB3', '엠리체', '로뎀타워', '푸리마타워', '퀸즈12', '지웰타워', '파인스퀘어', '그랑트윈타워', '메트로비즈', '메트로비즈타워', '사이언스타워2', 'LK빌딩', 'W타워3', '테크노타워2', '보타닉파크3', '이너매스1', '이너매스2', 'SH빌딩', '엠밸리 9단지', '르웨스트웍스', '원그로브', '케이스퀘어', '엠밸리 10단지'],
+    '발산역': ['나인스퀘어', '퀸즈11', '우성SB2', 'W타워2', '리더스타워', '대방빌딩', '열린M타워', '퀸즈9', '매그넘797', '퀸즈10', '엠펠리체', '에이스타워1', '건와빌딩', '마커스빌딩', '사이언스타', '사이언스타워1', '센트럴타워1', '장흥빌딩', '유바이오', '지투프라자', '보타닉파크2', '센테니아', '엘스타', '랑데르2', '리더스퀘어', '리더스에비뉴', '테크노타워1', '세움빌딩', '힐스테이트에코마곡', '발산파크프라자', '우성SB1', '문영비즈웍스', '사이언스파크뷰', '골든타워', '루체브릿지', '메이비원빌딩'],
+    '양천향교역': ['놀라움', '보타닉게이트', '뉴브클라우드힐스', '려산빌딩', '미라클빌딩', '델타빌딩', '보타닉파크프라자', '인방빌딩', '레인보우빌딩', '새싹빌딩'],
+    '마곡나루역': ['르웨스트시티', '7단지', '웰튼병원', '보타닉푸르지오', '보타닉푸르지오시티', '안강1', '안강2', '보타닉비즈', '랜드파크', '랜드타워', '센트럴타워2', '보타닉파크1', '보타닉비즈타워']
+}
+from flask import send_from_directory
 
 import pandas as pd
 import re
@@ -11,13 +19,32 @@ import zipfile
 import shutil
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import io
 
+from sqlalchemy import or_
 
 
 
 app = Flask(__name__)
+
+# 👇 방금 위에서 지운 코드를 여기에 딱 붙여넣습니다 👇
+# 📂 도면 네트워크 공유 폴더 경로 설정 (사진에 나온 경로 그대로 적용!)
+FLOORPLAN_FOLDER = r"\\Desktop-afi1aev\포커스부동산\건물별 도면"
+app.config["FLOORPLAN_FOLDER"] = FLOORPLAN_FOLDER
+
+# 폴더가 없으면 자동 생성 (또는 연결 확인)
+import os
+if not os.path.exists(FLOORPLAN_FOLDER):
+    try:
+        os.makedirs(FLOORPLAN_FOLDER, exist_ok=True)
+    except Exception as e:
+        print(f"도면 폴더 연결 실패: {e}")
+# 👆 여기까지 👆
+
+# 📂 [수정] 네트워크 공유 폴더 경로 설정 (앞에 r을 꼭 붙여야 합니다!)
+UPLOAD_FOLDER = r"\\Desktop-afi1aev\포커스부동산\찍은사진"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # 📂 [수정] 네트워크 공유 폴더 경로 설정 (앞에 r을 꼭 붙여야 합니다!)
 UPLOAD_FOLDER = r"\\Desktop-afi1aev\포커스부동산\찍은사진"
@@ -778,27 +805,41 @@ def login():
 @app.route("/")
 @login_required
 def index():
-    print("현재 로그인 상태:", current_user.is_authenticated)
+    # 1. [가장 중요] query 변수를 먼저 생성합니다. (에러 해결 핵심)
+    query = Property.query 
 
+    # 2. 필터 조건들 가져오기
     mode = request.args.get("mode", "rent")
     sort = request.args.get("sort", "")
     property_types = [pt for pt in request.args.getlist("property_type") if pt]
-    property_type = request.args.get("property_type", "").strip()  # ✅ index.html 오류 방지용
+    property_type = request.args.get("property_type", "").strip() 
+    locations = request.args.getlist('location') # 체크박스로 선택된 역 목록
 
-    query = Property.query
+    # 3. 위치(역) 체크박스 필터링 적용
+    if locations:
+        location_conditions = []
+        for loc in locations:
+            if loc in LOCATION_MAPPING:
+                buildings = LOCATION_MAPPING[loc]
+                for b in buildings:
+                    # 선택된 역에 해당하는 건물명이 포함된 경우를 모두 찾음
+                    location_conditions.append(Property.building_name.contains(b))
+        
+        # 여러 역 중 하나라도 해당되면 표시 (OR 조건)
+        if location_conditions:
+            query = query.filter(or_(*location_conditions))
 
-    # ✅ 변수 이름(property_types)과 검색 방식(.in_) 수정 완료
+    # 4. 매물 종류(상가/사무실 등) 필터링
     if property_types:
         query = query.filter(Property.property_type.in_(property_types))
 
+    # 5. 거래 구분(월세/매매) 필터링
     if mode == "sale":
         query = query.filter_by(category="매매")
     else:
         query = query.filter_by(category="월세")
 
-    # 정렬 로직
-
-    # 정렬 로직
+    # 6. 정렬 로직 적용
     if sort == "rent_asc":
         query = query.order_by(Property.rent.asc(), Property.deposit.asc())
     elif sort == "rent_desc":
@@ -812,28 +853,24 @@ def index():
     elif sort == "area_desc":
         query = query.order_by(Property.exclusive_area.desc())
     else:
+        # 기본 정렬
         if mode == "rent":
             query = query.order_by(Property.rent.asc(), Property.deposit.asc())
         else:
             query = query.order_by(Property.sale_price.asc())
 
-    # --- 여기서부터 페이지 나누기(20개씩) 적용 ---
+    # 7. 페이지 나누기 (20개씩)
     page = request.args.get('page', 1, type=int)
     pagination = query.paginate(page=page, per_page=20, error_out=False)
     properties = pagination.items
-    # -------------------------------------
 
+    # 8. 화면 표시용 추가 데이터 준비
     last_upload = UploadLog.query.order_by(UploadLog.id.desc()).first()
     upload_time = last_upload.upload_time if last_upload else "업로드 기록 없음"
-
     collections = Collection.query.all()
+    existing_pairs = set((item.property_id, item.collection_id) for item in CollectionItem.query.all())
 
-    existing_pairs = set(
-        (item.property_id, item.collection_id)
-        for item in CollectionItem.query.all()
-    )
-
-    # ✅ 카드 미리보기용 최신 사진 2장 (index/search와 동일)
+    # 9. 카드 미리보기용 최신 사진 2장 매칭
     thumb_map = {}
     for img in PropertyImage.query.order_by(PropertyImage.id.desc()).all():
         if img.property_id not in thumb_map:
@@ -841,6 +878,7 @@ def index():
         if len(thumb_map[img.property_id]) < 2:
             thumb_map[img.property_id].append(img.file_path)
 
+    # 10. 최종 결과물을 HTML 템플릿으로 전달
     return render_template(
         "index.html",
         properties=properties,
@@ -873,7 +911,9 @@ def search():
     building = request.args.get("building", "")
     categories = request.args.getlist("category")
     sort = request.args.get("sort", "")
-    property_types = [pt for pt in request.args.getlist("property_type") if pt]  # ✅ 빈값 제거
+    property_types = [pt for pt in request.args.getlist("property_type") if pt]  # 빈값 제거
+    locations = request.args.getlist("location") # ✅ 체크박스로 선택된 역 목록 가져오기
+    
     opt_interior = request.args.get("opt_interior", "")
     opt_gonghang = request.args.get("opt_gonghang", "")
     opt_corner = request.args.get("opt_corner", "")
@@ -887,16 +927,32 @@ def search():
     min_sale = request.args.get("min_sale", "")
     max_sale = request.args.get("max_sale", "")
 
+    # 1. 건물명 직접 검색
     if building:
         query = query.filter(Property.building_name.like(f"%{building}%"))
 
-    # ✅ 들여쓰기(띄어쓰기) 에러 완벽 해결
+    # 2. ✅ 위치(역) 체크박스 필터링 적용 (문제 해결의 핵심!)
+    if locations:
+        location_conditions = []
+        for loc in locations:
+            if loc in LOCATION_MAPPING:
+                buildings = LOCATION_MAPPING[loc]
+                for b in buildings:
+                    location_conditions.append(Property.building_name.contains(b))
+        
+        # 선택된 역의 건물 중 하나라도 일치하면 검색 결과에 포함
+        if location_conditions:
+            query = query.filter(or_(*location_conditions))
+
+    # 3. 매물종류(상가/사무실) 필터링
     if property_types:
         query = query.filter(Property.property_type.in_(property_types))
 
+    # 4. 거래구분(매매/월세) 필터링
     if categories:
         query = query.filter(Property.category.in_(categories))
 
+    # 5. 금액 조건 필터링
     if min_deposit:
         query = query.filter(Property.deposit >= int(min_deposit))
     if max_deposit:
@@ -907,16 +963,17 @@ def search():
     if max_rent:
         query = query.filter(Property.rent <= int(max_rent))
 
+    if min_sale:
+        query = query.filter(Property.sale_price >= int(min_sale))
+    if max_sale:
+        query = query.filter(Property.sale_price <= int(max_sale))
+
     if min_area:
         query = query.filter(Property.exclusive_area >= float(min_area))
     if max_area:
         query = query.filter(Property.exclusive_area <= float(max_area))
 
-    if min_sale:
-        query = query.filter(Property.sale_price >= int(min_sale))
-    if max_sale:
-        query = query.filter(Property.sale_price <= int(max_sale))
-    # ✅ 옵션 필터 적용
+    # 6. 옵션(인테리어, 코너 등) 필터링
     if opt_interior == "on":
         query = query.filter(Property.has_interior == True)
     if opt_gonghang == "on":
@@ -924,7 +981,7 @@ def search():
     if opt_corner == "on":
         query = query.filter(Property.has_corner == True)    
 
-    # 정렬 로직
+    # 7. 정렬 로직
     if sort == "rent_asc":
         query = query.order_by(
             case((Property.category == "월세", 0), else_=1),
@@ -950,6 +1007,7 @@ def search():
     elif sort == "area_desc":
         query = query.order_by(Property.exclusive_area.desc())
 
+    # 8. 페이지 처리
     page = request.args.get('page', 1, type=int)
     pagination = query.paginate(page=page, per_page=30, error_out=False)
     results = pagination.items
@@ -964,7 +1022,7 @@ def search():
         for item in CollectionItem.query.all()
     )
 
-    # ✅ 카드 미리보기용 최신 사진 2장
+    # 9. 사진 썸네일 세팅
     thumb_map = {}
     for img in PropertyImage.query.order_by(PropertyImage.id.desc()).all():
         if img.property_id not in thumb_map:
@@ -980,7 +1038,7 @@ def search():
         format_sale_price_korean=format_sale_price_korean,
         upload_time=upload_time,
         thumb_map=thumb_map,
-        pagination=pagination  # 🔥 화면에 페이지 버튼을 띄우기 위해 변수 전달! 
+        pagination=pagination
     )
 
 
@@ -989,14 +1047,16 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
     
     latest_props = {}
     current_title = None
+    current_ts = None  # ✅ 카톡 메시지(해당 매물) 시간 저장용
     current_raw_memo = []
     current_status = 'available'
     
     from datetime import datetime, timedelta
-    current_date = datetime.now()
-    two_months_ago = current_date - timedelta(days=60)
+    now = datetime.now()
+    current_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    two_months_ago = now - timedelta(days=60)
     
-    header_pattern = re.compile(r'^\[.+?\] \[(?:오전|오후) \d+:\d+\] (.+)')
+    header_pattern = re.compile(r'^\[.+?\] \[(오전|오후) (\d+):(\d+)\] (.+)')
     date_pattern = re.compile(r'^-+ (\d{4})년 (\d{1,2})월 (\d{1,2})일')
 
     out_keywords = ['아웃', '매도함', '계약완료', '거래완료', '임대완료', '매매완료', '계약됨', '거래됨', '계약진행중']
@@ -1016,17 +1076,31 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
 
         match = header_pattern.match(line)
         if match:
+            # ✅ 이전 매물 저장 (이 매물의 마지막 카톡 시간 = current_ts)
             if current_title:
                 latest_props[current_title] = {
                     'building_name': current_title,
                     'status': current_status,
                     'raw_memo': current_raw_memo,
-                    'date': current_date
+                    'ts': current_ts or current_date
                 }
 
-            raw_title = match.group(1).strip()
+            period = match.group(1)  # 오전/오후
+            hh = int(match.group(2))
+            mm = int(match.group(3))
+            raw_title = match.group(4).strip()
+
+            # ✅ 12시간제 -> 24시간제 변환 (카톡 시간)
+            if period == "오전":
+                hour24 = 0 if hh == 12 else hh
+            else:  # 오후
+                hour24 = hh if hh == 12 else hh + 12
+
+            # ✅ 현재 매물의 '카톡 업로드 시간' 저장
+            current_ts = current_date.replace(hour=hour24, minute=mm, second=0, microsecond=0)
+
             upper_title = raw_title.upper()
-            
+
             # 띄어쓰기 무시하고 아웃 키워드 검사 (예: "계약 완료" -> "계약완료")
             upper_title_no_space = upper_title.replace(" ", "")
 
@@ -1035,14 +1109,14 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
                 status = 'out'
             elif '보류' in upper_title_no_space:
                 status = 'hold'
-                
+
             clean_title = re.sub(r'\*\*.*?\*\*|\*.*?\*|\[.*?\]', '', raw_title).strip()
             clean_title = clean_title.upper()
 
             current_title = clean_title
             current_status = status
             current_raw_memo = [raw_title.upper()]
-            
+
         elif current_title is not None:
             upper_line = line.upper()
             upper_line_no_space = upper_line.replace(" ", "")
@@ -1058,7 +1132,7 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
             'building_name': current_title,
             'status': current_status,
             'raw_memo': current_raw_memo,
-            'date': current_date
+            'ts': current_ts or current_date
         }
 
     count = 0
@@ -1066,7 +1140,7 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
     for p in latest_props.values():
         
         # ⚠️ [주의] 오늘 기준 60일(두 달) 이전의 과거 대화는 삭제됨!
-        if p['date'] < two_months_ago:
+        if p.get('ts') and p['ts'] < two_months_ago:
             continue
 
         if p['status'] == 'out' or p['status'] == 'hold':
@@ -1139,20 +1213,34 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
                     deposit = int(float(j_raw))
 
         sale_price = 0
-        sale_match_eok = re.search(r'(?:매매|매도|분양|분양가)[^\d\n]*([\d\.,]+)\s*억(?:\s*([\d,]+))?', body_text)
+        # ✅ 매매가 파싱(억/만/천 단위 + 줄바꿈 오염 방지)
+        # - '2억 3천'  -> 2억 3000만(=23000)
+        # - '2억'      -> 20000
+        # - '1.6억'    -> 16000  (※ 1.6억은 1억 6000만)
+        sale_match_eok = re.search(
+            r'(?:매매|매도|분양|분양가)[^\d\n]*([\d\.,]+)[ \t]*억(?:[ \t]*([\d,]+)\s*(천|만)?\s*)?',
+            body_text
+        )
         sale_match_num = re.search(r'(?:매매|매도|분양|분양가)[^\d\n]*([1-9][\d,]{3,})', body_text)
-        
+
         if sale_match_eok:
             eok = float(sale_match_eok.group(1).replace(',', ''))
-            sale_price = int(eok * 10000)
-            if sale_match_eok.group(2):
-                man_str = sale_match_eok.group(2).replace(',', '').strip()
-                if man_str:
-                    sale_price += int(man_str)
+            sale_price = int(round(eok * 10000))
+
+            man_raw = (sale_match_eok.group(2) or "").replace(",", "").strip()
+            unit = (sale_match_eok.group(3) or "").strip()
+
+            if man_raw:
+                if unit == "천":
+                    sale_price += int(man_raw) * 1000
+                else:
+                    sale_price += int(man_raw)
+
         elif sale_match_num:
             sale_price = int(sale_match_num.group(1).replace(',', ''))
 
-        # 🔥 [가장 중요한 핵심 3] 구명조끼 로직 🔥
+
+# 🔥 [가장 중요한 핵심 3] 구명조끼 로직 🔥
         # 가격 파악에 실패해서 0원이 되더라도, '면적(전용,실평수)'이 0이 아니면 버리지 않고 100% 등록함!
         if deposit == 0 and rent == 0 and sale_price == 0 and exc_area == 0.0:
             continue
@@ -1162,10 +1250,99 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
         has_gonghang = bool(re.search(r'(공항)', body_text))
 
         property_type = target_property_type
-            
+
+        # -----------------------------
+        # 🔥 임대 + 매매 동시에 있는 경우 분리 등록
+        # -----------------------------
+
+        # ✅ 둘 다 있는 경우
+        if sale_price > 0 and rent > 0:
+
+            # ===== 월세 등록 =====
+            rent_existing = Property.query.filter_by(
+                building_name=p['building_name'],
+                category="월세"
+            ).first()
+
+            if rent_existing:
+                rent_existing.exclusive_area = exc_area
+                rent_existing.contract_area = con_area
+                rent_existing.deposit = deposit
+                rent_existing.rent = rent
+                rent_existing.sale_price = 0
+                rent_existing.private_memo = body_text
+                rent_existing.source_ts = p['ts']
+                # 👇 추가됨
+                rent_existing.has_interior = has_interior
+                rent_existing.has_gonghang = has_gonghang
+                rent_existing.has_corner = has_corner
+            else:
+                db.session.add(Property(
+                    building_name=p['building_name'],
+                    exclusive_area=exc_area,
+                    contract_area=con_area,
+                    deposit=deposit,
+                    rent=rent,
+                    sale_price=0,
+                    private_memo=body_text,
+                    category="월세",
+                    property_type=property_type,
+                    source_ts=p['ts'],
+                    # 👇 추가됨
+                    has_interior=has_interior,
+                    has_gonghang=has_gonghang,
+                    has_corner=has_corner
+                ))
+
+            # ===== 매매 등록 =====
+            sale_existing = Property.query.filter_by(
+                building_name=p['building_name'],
+                category="매매"
+            ).first()
+
+            if sale_existing:
+                sale_existing.exclusive_area = exc_area
+                sale_existing.contract_area = con_area
+                sale_existing.deposit = 0
+                sale_existing.rent = 0
+                sale_existing.sale_price = sale_price
+                sale_existing.private_memo = body_text
+                sale_existing.source_ts = p['ts']
+                # 👇 추가됨
+                sale_existing.has_interior = has_interior
+                sale_existing.has_gonghang = has_gonghang
+                sale_existing.has_corner = has_corner
+            else:
+                db.session.add(Property(
+                    building_name=p['building_name'],
+                    exclusive_area=exc_area,
+                    contract_area=con_area,
+                    deposit=0,
+                    rent=0,
+                    sale_price=sale_price,
+                    private_memo=body_text,
+                    category="매매",
+                    property_type=property_type,
+                    source_ts=p['ts'],
+                    # 👇 추가됨
+                    has_interior=has_interior,
+                    has_gonghang=has_gonghang,
+                    has_corner=has_corner
+                ))
+
+            count += 2
+            continue
+
+        # -----------------------------
+        # 🔥 기존 단일 등록 로직
+        # -----------------------------
+
         category_val = '매매' if (sale_price > 0 and rent == 0) else '월세'
 
-        existing_prop = Property.query.filter_by(building_name=p['building_name']).first()
+        existing_prop = Property.query.filter_by(
+            building_name=p['building_name'],
+            category=category_val
+        ).first()
 
         if existing_prop:
             existing_prop.exclusive_area = exc_area
@@ -1173,35 +1350,32 @@ def parse_kakao_text(text_data, target_property_type="사무실"):
             existing_prop.deposit = deposit
             existing_prop.rent = rent
             existing_prop.sale_price = sale_price
-            existing_prop.status = p['status']
-            existing_prop.has_interior = has_interior
-            existing_prop.has_corner = has_corner
-            existing_prop.has_gonghang = has_gonghang
             existing_prop.private_memo = body_text
-            existing_prop.category = category_val
-            existing_prop.property_type = property_type
-            existing_prop.source_ts = datetime.utcnow()
+            existing_prop.source_ts = p['ts']
+            # 👇 추가됨
+            existing_prop.has_interior = has_interior
+            existing_prop.has_gonghang = has_gonghang
+            existing_prop.has_corner = has_corner
         else:
-            new_property = Property(
+            db.session.add(Property(
                 building_name=p['building_name'],
                 exclusive_area=exc_area,
                 contract_area=con_area,
                 deposit=deposit,
                 rent=rent,
                 sale_price=sale_price,
-                status=p['status'],
-                has_interior=has_interior,
-                has_corner=has_corner,
-                has_gonghang=has_gonghang,
                 private_memo=body_text,
                 category=category_val,
                 property_type=property_type,
-                source_ts=datetime.utcnow()
-            )
-            db.session.add(new_property)
-        
+                source_ts=p['ts'],
+                # 👇 추가됨
+                has_interior=has_interior,
+                has_gonghang=has_gonghang,
+                has_corner=has_corner
+            ))
+
         count += 1
-        
+
     db.session.commit()
     return count
 
@@ -1725,6 +1899,127 @@ def delete_all_memos():
     # 작업 완료 후, 버튼을 눌렀던 이전 페이지로 새로고침
     return redirect(request.referrer or url_for('register'))
 
+# ==========================================
+# 📐 도면 창고 관련 라우트 (지역 폴더 구조 반영)
+# ==========================================
+
+@app.route("/floorplans")
+@login_required
+def floorplans():
+    # 지역별로 건물을 묶어서 딕셔너리로 만듦 (예: {'1.마곡': ['W타워3', '퀸즈9'], '2.마곡나루': [...]})
+    regions = {}
+    base_dir = app.config["FLOORPLAN_FOLDER"]
+    
+    if os.path.exists(base_dir):
+        # 1. 지역 폴더 탐색 (1.마곡, 2.마곡나루 등)
+        for region_folder in sorted(os.listdir(base_dir)):
+            region_path = os.path.join(base_dir, region_folder)
+            if os.path.isdir(region_path):
+                # 2. 지역 폴더 안의 건물 폴더 탐색
+                buildings = [b for b in sorted(os.listdir(region_path)) if os.path.isdir(os.path.join(region_path, b))]
+                if buildings:
+                    regions[region_folder] = buildings
+                    
+    return render_template("floorplans.html", regions=regions)
+
+
+@app.route("/api/floorplans/<path:building_name>")
+@login_required
+def api_get_floorplans(building_name):
+    base_dir = app.config["FLOORPLAN_FOLDER"]
+    images = []
+    
+    if os.path.exists(base_dir):
+        target_region = None
+        target_building = None
+        
+        # 1. 모든 지역 폴더를 뒤지면서 해당 건물명 찾기
+        for region_folder in os.listdir(base_dir):
+            region_path = os.path.join(base_dir, region_folder)
+            if not os.path.isdir(region_path): continue
+            
+            for b_folder in os.listdir(region_path):
+                if os.path.isdir(os.path.join(region_path, b_folder)):
+                    # DB 건물명(예: 퀸즈9 A동)과 폴더명(퀸즈9)을 띄어쓰기 없이 비교해서 포함되면 매칭
+                    clean_req = building_name.replace(" ", "").lower()
+                    clean_folder = b_folder.replace(" ", "").lower()
+                    
+                    if clean_req in clean_folder or clean_folder in clean_req:
+                        target_region = region_folder
+                        target_building = b_folder
+                        break
+            if target_building:
+                break # 찾았으면 지역 탐색 중지
+
+        # 2. 건물을 찾았으면 그 안의 이미지들 불러오기
+        if target_region and target_building:
+            b_path = os.path.join(base_dir, target_region, target_building)
+            # 층별 이름순으로 정렬해서 가져오기 (1층, 2층...)
+            for f in sorted(os.listdir(b_path)):
+                if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                    images.append(url_for('serve_floorplan', region=target_region, building=target_building, filename=f))
+                    
+    return jsonify({"images": images})
+
+
+@app.route("/floorplan_img/<region>/<building>/<filename>")
+@login_required
+def serve_floorplan(region, building, filename):
+    directory = os.path.join(app.config["FLOORPLAN_FOLDER"], region, building)
+    return send_from_directory(directory, filename)
+
+# ==========================================
+# 📱 모바일 홈화면용 '돋보기 안의 집' 아이콘 생성
+# ==========================================
+@app.route('/serve_app_icon.png')
+def generate_app_icon():
+    # 아이콘 크기를 꽉 채우기 위한 192x192 규격
+    width, height = 192, 192
+    # ✨ 부드러운 파스텔 블루 배경색 적용
+    bg_color = '#9ab8e9'
+
+    try:
+        img = Image.new('RGB', (width, height), color=bg_color)
+        draw = ImageDraw.Draw(img)
+
+        # 1. 돋보기 원형 테두리 그리기
+        glass_bbox = [30, 24, 140, 134]
+        draw.ellipse(glass_bbox, outline="white", width=14)
+
+        # 2. 돋보기 손잡이 그리기 (사선)
+        handle_start = (120, 114)
+        handle_end = (160, 154)
+        draw.line([handle_start, handle_end], fill="white", width=20)
+        # 손잡이 끝을 둥글게 마감
+        draw.ellipse([150, 144, 170, 164], fill="white")
+
+        # 3. 집 지붕 그리기 (삼각형)
+        roof_points = [(85, 48), (48, 80), (122, 80)]
+        draw.polygon(roof_points, fill="white")
+
+        # 4. 집 몸통 그리기 (사각형)
+        house_box = [58, 80, 112, 112]
+        draw.rectangle(house_box, fill="white")
+
+        # 5. 집 문 그리기 (배경색으로 뚫어서 문 모양 만들기)
+        door_box = [75, 92, 95, 112]
+        draw.rectangle(door_box, fill=bg_color)
+
+        # 완성된 그림을 메모리에 저장 후 모바일로 쏴주기
+        img_io = io.BytesIO()
+        img.save(img_io, 'PNG')
+        img_io.seek(0)
+        
+        return Response(img_io.getvalue(), mimetype='image/png')
+        
+    except Exception as e:
+        print(f"아이콘 생성 실패: {e}")
+        # 혹시 실패해도 파스텔 블루 배경은 띄워주기
+        fallback_img = Image.new('RGB', (width, height), color=bg_color)
+        fb_io = io.BytesIO()
+        fallback_img.save(fb_io, 'PNG')
+        fb_io.seek(0)
+        return Response(fb_io.getvalue(), mimetype='image/png')
 
 
 if __name__ == "__main__":

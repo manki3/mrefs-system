@@ -8,9 +8,17 @@
 
     <meta property="og:title" content="FOCUS REAL ESTATE - 매물 관리 시스템">
     <meta property="og:description" content="FOCUS 부동산 매물 관리 시스템">
-    <meta property="og:image" content="https://mrefs-system.onrender.com/static/focus_thumbnail.png">
-    <meta property="og:url" content="https://mrefs-system.onrender.com">
+    <meta property="og:image" content="{{ request.url_root }}static/focus_thumbnail.png?v=999">
+    <meta property="og:url" content="{{ request.url_root }}">
     <meta property="og:type" content="website">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FOCUS">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ request.url_root }}serve_app_icon.png?v=999">
+    <link rel="shortcut icon" type="image/png" href="{{ request.url_root }}serve_app_icon.png?v=999">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ request.url_root }}serve_app_icon.png?v=999">
 
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -86,20 +94,6 @@ body {
     }
 }
 
-/* 모바일에서 '내 리스트'를 2칸 차지하도록 확장 */
-@media (max-width: 800px) {
-
-    .menu a[href="/collections"]{
-        grid-column: 1 / -1;     /* 한 줄 전체 차지 */
-        height: 58px;            /* 위 버튼 높이와 균형 맞춤 (크기 고정) */
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size: 20px; /* 🔥 내 리스트 글자 크기를 17px -> 20px 로 확대 */
-        border-radius:14px;
-    }
-
-}
 
 
 
@@ -905,6 +899,138 @@ select {
 .property-card:hover .memo-tooltip { display: block; }
 @media (max-width: 800px) { .memo-tooltip { display: none !important; } }
 
+/* =========================================
+   🖥️📱 모바일 + PC 통합: 중앙 집중형 검색 + 알약 버튼
+   ========================================= */
+.hero-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0 24px 0;
+    padding: 0 10px;
+}
+
+.hero-search-bar {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 650px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 50px;
+    padding: 14px 20px;
+    text-decoration: none;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    margin-bottom: 16px;
+    box-sizing: border-box;
+}
+
+.hero-search-bar:hover {
+    border-color: #2d7ff9;
+    box-shadow: 0 8px 24px rgba(45,127,249,0.15);
+    transform: translateY(-2px);
+}
+
+.hero-search-bar .search-icon {
+    font-size: 20px;
+    margin-right: 10px;
+}
+
+.hero-search-bar .search-placeholder {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 핸드폰에서 글자 넘치면 ... 처리 */
+}
+
+/* 모바일에서는 가로로 스와이프(스크롤) 가능하게 설정 */
+.hero-pill-menu {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 650px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    -ms-overflow-style: none; /* IE 스크롤바 숨김 */
+    scrollbar-width: none; /* 파이어폭스 스크롤바 숨김 */
+}
+.hero-pill-menu::-webkit-scrollbar {
+    display: none; /* 크롬/사파리/모바일 스크롤바 숨김 */
+}
+
+.pill-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    color: #4b5563;
+    padding: 10px 16px;
+    border-radius: 40px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap; /* 글자 줄바꿈 방지 */
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    flex-shrink: 0; /* 알약 버튼 찌그러짐 방지 */
+}
+
+.pill-btn:hover {
+    background: #2d7ff9;
+    color: #ffffff;
+    border-color: #2d7ff9;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(45,127,249,0.2);
+}
+
+.pill-btn.floor:hover { background: #8b5cf6; border-color: #8b5cf6; box-shadow: 0 6px 14px rgba(139,92,246,0.2); }
+.pill-btn.reg:hover { background: #10b981; border-color: #10b981; box-shadow: 0 6px 14px rgba(16,185,129,0.2); }
+
+.pill-icon { font-size: 16px; }
+
+/* PC 화면일 때는 좀 더 크고 가운데 정렬되게 변경 */
+@media (min-width: 801px) {
+    .hero-section {
+        margin: 20px 0 40px 0;
+        padding: 0 20px;
+    }
+    .hero-search-bar {
+        padding: 18px 26px;
+        margin-bottom: 24px;
+    }
+    .hero-search-bar .search-icon { font-size: 24px; margin-right: 14px; }
+    .hero-search-bar .search-placeholder { font-size: 16px; }
+    .hero-pill-menu {
+        justify-content: center;
+        gap: 14px;
+        overflow-x: visible;
+    }
+    .pill-btn {
+        padding: 12px 22px;
+        font-size: 15px;
+        gap: 8px;
+    }
+    .pill-icon { font-size: 18px; }
+}
+
+/* 📱 모바일 환경에서만 메뉴 순서 변경 (내리스트 -> 도면 -> 등록 -> 월세 -> 매매) */
+@media (max-width: 800px) {
+    .pill-btn.list  { order: 1; }
+    .pill-btn.floor { order: 2; }
+    .pill-btn.reg   { order: 3; }
+    .pill-btn.rent  { order: 4; }
+    .pill-btn.sale  { order: 5; }
+}
+
+
+
 </style>
 
 </head>
@@ -919,26 +1045,48 @@ select {
     </div>
 
 
-    <div class="menu-wrapper">
-
-    <div class="menu">
-        <a href="/?mode=rent">월세</a>
-        <a href="/?mode=sale">매매</a>
-        <a href="/register" class="pc-only">매물등록</a>
-        <a href="/collections">내 리스트</a>
+    <div class="hero-section">
+        <a href="/search" class="hero-search-bar">
+            <span class="search-icon">🔍</span>
+            <span class="search-placeholder">어떤 매물을 찾고 계신가요?</span>
+        </a>
+        
+        <div class="hero-pill-menu" id="top-pill-menu">
+            <a href="/?mode=rent" class="pill-btn rent"><span class="pill-icon">🏢</span> 월세</a>
+            <a href="/?mode=sale" class="pill-btn sale"><span class="pill-icon">🤝</span> 매매</a>
+            <a href="/collections" class="pill-btn list"><span class="pill-icon">📁</span> 내 리스트</a>
+            <a href="/floorplans" class="pill-btn floor"><span class="pill-icon">📐</span> 도면창고</a>
+            <a href="/register" class="pill-btn reg"><span class="pill-icon">✍️</span> 매물등록</a>
+        </div>
     </div>
-
-    <a href="/search" class="search-fab" title="매물 검색">
-        🔍
-    </a>
-
-</div>
 
 
 {% block content %}
 {% endblock %}
 
 </div>
+
+<script>
+// 💾 상단 알약 메뉴 스크롤 위치 기억하는 마법의 스크립트
+document.addEventListener("DOMContentLoaded", function() {
+    const menu = document.getElementById("top-pill-menu");
+    if (menu) {
+        // 1. 이전에 저장된 스크롤 위치가 있으면 그 위치로 순간이동
+        const savedScroll = sessionStorage.getItem("menuScrollPosition");
+        if (savedScroll !== null) {
+            menu.scrollLeft = parseInt(savedScroll, 10);
+        }
+
+        // 2. 사용자가 스와이프(스크롤)할 때마다 현재 위치를 브라우저에 저장
+        menu.addEventListener("scroll", function() {
+            sessionStorage.setItem("menuScrollPosition", menu.scrollLeft);
+        });
+    }
+});
+</script>
+
+
+
 
 </body>
 

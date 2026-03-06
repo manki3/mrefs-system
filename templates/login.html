@@ -3,7 +3,15 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8">
-    <title>로그인 - MK 부동산 장부</title>
+    <title>로그인 - FOCUS</title>
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2d7ff9">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FOCUS">
+    <link rel="apple-touch-icon" href="/serve_app_icon.png">
+    <link rel="shortcut icon" href="/serve_app_icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/serve_app_icon.png">
 
 <style>
 
@@ -99,6 +107,38 @@ button:hover {
     }
 }
 
+/* ===== 🚀 스플래시 (오프닝) 화면 디자인 ===== */
+#splash-screen {
+    position: fixed;
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh;
+    background-color: #1a2a40; /* 딥블루 배경 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+    transition: opacity 0.4s ease-out;
+}
+
+#splash-screen img {
+    width: 80%;       /* 핸드폰 가로 화면의 80% 차지 (거의 꽉 참) */
+    max-width: 600px; /* PC 같은 너무 넓은 화면에선 너무 커지는 거 방지 (선택 사항) */
+    height: auto;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.splash-hidden {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
 </style>
 
 </head>
@@ -128,6 +168,32 @@ button:hover {
     </div>
 
 </div>
+
+<div id="splash-screen">
+    <img src="/static/focus_thumbnail.png" alt="FOCUS REAL ESTATE">
+</div>
+
+<script>
+// 💾 오프닝 화면 제어 스크립트
+document.addEventListener("DOMContentLoaded", function() {
+    const splash = document.getElementById("splash-screen");
+    if (!splash) return;
+
+    if (!sessionStorage.getItem("appOpened")) {
+        // 처음 켰을 때만 0.8초 동안 보여줌
+        setTimeout(() => {
+            splash.classList.add("splash-hidden"); 
+            setTimeout(() => { 
+                splash.style.display = "none"; 
+            }, 400); 
+        }, 800); 
+        sessionStorage.setItem("appOpened", "true");
+    } else {
+        // 이미 켜진 상태면 바로 숨김
+        splash.style.display = "none";
+    }
+});
+</script>
 
 </body>
 </html>

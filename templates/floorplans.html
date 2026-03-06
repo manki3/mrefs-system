@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="section-title" style="border-left-color: #8b5cf6; background: linear-gradient(to right, #f3e8ff, transparent);">
+    📐 도면 창고
+</div>
+
+
+
+{% for region, buildings in regions.items() %}
+    
+    <div onclick="toggleRegion('{{ loop.index }}')" style="margin-top: 16px; margin-bottom: 10px; background: #eef4ff; color: #2d7ff9; padding: 16px 20px; border-radius: 12px; font-size: 18px; font-weight: 800; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;">
+        <span>
+            📍 {{ region }} 
+            <span style="font-size: 14px; color: #6b7280; margin-left: 6px; font-weight: 600;">({{ buildings|length }}개 건물)</span>
+        </span>
+        <span id="icon-{{ loop.index }}" style="font-size: 16px; transition: transform 0.3s ease;">🔽</span>
+    </div>
+    
+    <div id="grid-{{ loop.index }}" style="display: none; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px;">
+        {% for b in buildings %}
+        <div class="card" style="text-align: center; cursor: pointer; padding: 20px 10px; transition: 0.2s;" 
+             onclick="loadFloorPlans('{{ b }}')" 
+             onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 15px rgba(139,92,246,0.2)'" 
+             onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.1)'">
+            <div style="font-size: 30px; margin-bottom: 10px;">🏢</div>
+            <div style="font-weight: 800; font-size: 14px; word-break: keep-all; color: #333;">{{ b }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+{% endfor %}
+
+<script>
+function toggleRegion(index) {
+    var grid = document.getElementById("grid-" + index);
+    var icon = document.getElementById("icon-" + index);
+    
+    if (grid.style.display === "none" || grid.style.display === "") {
+        // 숨겨져 있으면 펴기 (grid로 변경)
+        grid.style.display = "grid";
+        icon.style.transform = "rotate(180deg)"; // 아이콘 위로 뒤집기
+    } else {
+        // 펴져 있으면 숨기기
+        grid.style.display = "none";
+        icon.style.transform = "rotate(0deg)"; // 아이콘 원래대로
+    }
+}
+</script>
+
+<div id="floorplan-modal" class="photo-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 100000; flex-direction: column; background: rgba(0,0,0,0.95); padding: 20px; padding-top: 12vh; align-items: center; justify-content: flex-start; box-sizing: border-box;">
+    <div style="position: absolute; top: 15px; right: 20px; color: white; font-size: 35px; cursor: pointer; font-weight: bold;" onclick="closeFloorPlanModal()">✕</div>
+
+    <div style="color: white; font-size: 22px; font-weight: bold; margin-bottom: 20px; text-align: center;" id="floorplan-title">도면 보기</div>
+
+    <div id="floor-list-container" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 500px; width: 100%; max-height: 70vh; overflow-y: auto; padding-bottom: 20px;">
+    </div>
+
+    <div id="image-view-container" style="display: none; flex-direction: column; align-items: center; width: 100%; height: 75vh; position: relative; overflow: hidden;">
+        <button onclick="backToFloorList()" style="position: absolute; top: 0; z-index: 10; padding: 10px 20px; background: #8b5cf6; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            ← 층 다시 선택하기
+        </button>
+        <div id="img-drag-area" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; margin-top: 40px;">
+            <img id="floorplan-img-view" src="" style="max-height: 100%; max-width: 100%; object-fit: contain; background: white; border-radius: 10px; border: 2px solid #555; cursor: grab; transition: transform 0.05s linear;">
+        </div>
+    </div>
+</div>
+
+<script>
+let currentBuildingName = "";
+// 확대/드래그용 변수
+let scale = 1, panning = false, pointX = 0, pointY = 0, startX = 0, startY = 0;
+const imgView = document.getElementById("floorplan-img-view");
+
+function getCleanBuildingName(name) {
+    return name.replace(/\s*[A-Za-z가-힣]*동\s*/g, ' ').replace(/\s*\d+(?:-\d+)?호.*/g, '').trim() || name;
+}
+
+function getFloorValue(fileName) {
+    let name = fileName.toUpperCase();
+    let numMatch = name.match(/\d+/);
+    if (!numMatch) {
+        if (name.includes("옥상") || name.includes("루프탑")) return 999;
+        if (name.includes("지하")) return -999;
+        return 0; 
+    }
+    let num = parseInt(numMatch[0]);
+    if (name.includes("지하") || name.includes("B")) return -num;
+    return num;
+}
+
+function loadFloorPlans(buildingName) {
+    if(typeof getCleanBuildingName === "function"){
+        currentBuildingName = getCleanBuildingName(buildingName);
+    } else {
+        currentBuildingName = buildingName;
+    }
+
+    fetch('/api/floorplans/' + encodeURIComponent(buildingName))
+    .then(r => r.json())
+    .then(data => {
+        if(data.images.length === 0) {
+            alert("해당 건물의 도면 파일이 네트워크 폴더에 없습니다.");
+            return;
+        }
+        document.getElementById("floorplan-title").innerText = "📐 " + currentBuildingName + " 층 선택";
+        document.getElementById("image-view-container").style.display = "none";
+        
+        const floorList = document.getElementById("floor-list-container");
+        floorList.innerHTML = "";
+        floorList.style.display = "flex";
+
+        data.images.sort((a, b) => {
+            let fileA = decodeURIComponent(a.split('/').pop()).split('.')[0];
+            let fileB = decodeURIComponent(b.split('/').pop()).split('.')[0];
+            return getFloorValue(fileA) - getFloorValue(fileB);
+        });
+
+        data.images.forEach(src => {
+            const fileName = decodeURIComponent(src.split('/').pop()).split('.')[0];
+            const btn = document.createElement("button");
+            btn.innerText = fileName;
+            btn.style.cssText = "padding: 14px 20px; background: #333; color: white; border: 1px solid #555; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; min-width: 80px; flex-grow: 1; text-align: center; transition: 0.2s;";
+            btn.onmouseover = () => btn.style.background = "#8b5cf6";
+            btn.onmouseout = () => btn.style.background = "#333";
+            btn.onclick = () => showFloorImage(src, fileName);
+            floorList.appendChild(btn);
+        });
+
+        document.getElementById("floorplan-modal").style.display = "flex";
+    });
+}
+
+function showFloorImage(src, floorName) {
+    document.getElementById("floor-list-container").style.display = "none";
+    document.getElementById("image-view-container").style.display = "flex";
+    document.getElementById("floorplan-title").innerText = "📐 " + currentBuildingName + " (" + floorName + ")";
+    imgView.src = src;
+    resetZoom(); // 이미지 열 때마다 배율 및 위치 초기화
+}
+
+function backToFloorList() {
+    document.getElementById("image-view-container").style.display = "none";
+    document.getElementById("floor-list-container").style.display = "flex";
+    document.getElementById("floorplan-title").innerText = "📐 " + currentBuildingName + " 층 선택";
+}
+
+function closeFloorPlanModal() {
+    document.getElementById("floorplan-modal").style.display = "none";
+}
+
+// ================= 마우스 확대 및 드래그 (PC 화면 지원) =================
+function resetZoom() {
+    scale = 1; pointX = 0; pointY = 0;
+    setTransform();
+}
+function setTransform() {
+    imgView.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+}
+
+imgView.onmousedown = function (e) {
+    e.preventDefault();
+    startX = e.clientX - pointX;
+    startY = e.clientY - pointY;
+    panning = true;
+    imgView.style.cursor = "grabbing";
+};
+imgView.onmouseup = function (e) {
+    panning = false;
+    imgView.style.cursor = "grab";
+};
+imgView.onmousemove = function (e) {
+    if (!panning) return;
+    pointX = e.clientX - startX;
+    pointY = e.clientY - startY;
+    setTransform();
+};
+imgView.onmouseleave = function (e) {
+    panning = false;
+    imgView.style.cursor = "grab";
+};
+imgView.onwheel = function (e) {
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY) * -0.15; // 휠 속도 (위로 굴리면 확대)
+    scale += delta;
+    scale = Math.min(Math.max(0.5, scale), 5); // 최소 0.5배, 최대 5배 제한
+    setTransform();
+};
+</script>
+
+{% endblock %}

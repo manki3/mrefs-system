@@ -13,7 +13,7 @@
 
         <div class="title-right">
             <div class="meta">📅 {{ upload_time }}</div>
-            <div class="meta">📦 {{ properties|length }}개 매물</div>
+            <div class="meta">📦 {{ pagination.total }}개 매물</div>
         </div>
 
     </div>
@@ -23,101 +23,112 @@
 
 <div class="search-main-card">
 
-<form method="GET" id="searchForm">
+<div class="search-section">
+    <div class="form-row">
+        <div class="row-title">🏢 건물명 검색</div>
+        <input type="text" name="building" value="{{ request.args.get('building', '') }}" class="modern-input" placeholder="예: 퀸즈파크, 엠밸리...">
+    </div>
 
-<div class="search-section"><div class="form-row">
-    <label>건물명</label>
-    <input type="text" name="building" value="{{ request.args.get('building', '') }}">
-</div>
+    <div class="form-row">
+        <div class="row-title">📍 위치 (역 선택)</div>
+        <div class="chip-group">
+            {% for loc in ['마곡역', '발산역', '마곡나루역', '양천향교역'] %}
+            <label class="chip-label">
+                <input type="checkbox" name="location" value="{{ loc }}" {% if loc in request.args.getlist('location') %}checked{% endif %}>
+                <span class="chip-text">{{ loc }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
 
-<div class="form-row">
-    <label>매물종류</label>
-    <div class="checkbox-group">
-        <label>
-            <input type="checkbox" name="property_type" value="상가" {% if '상가' in request.args.getlist('property_type') %}checked{% endif %}> 상가
-        </label>
-        <label>
-            <input type="checkbox" name="property_type" value="사무실" {% if '사무실' in request.args.getlist('property_type') %}checked{% endif %}> 사무실
-        </label>
-        <label>
-            <input type="checkbox" name="property_type" value="주거용" {% if '주거용' in request.args.getlist('property_type') %}checked{% endif %}> 주거용
-        </label>
+    <div class="form-row">
+        <div class="row-title">🏠 매물종류</div>
+        <div class="chip-group">
+            {% for ptype in ['상가', '사무실', '주거용'] %}
+            <label class="chip-label">
+                <input type="checkbox" name="property_type" value="{{ ptype }}" {% if ptype in request.args.getlist('property_type') %}checked{% endif %}>
+                <span class="chip-text">{{ ptype }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="row-title">✨ 옵션</div>
+        <div class="chip-group">
+            <label class="chip-label">
+                <input type="checkbox" name="opt_interior" value="on" {% if request.args.get('opt_interior') == 'on' %}checked{% endif %}>
+                <span class="chip-text">룸/인테리어</span>
+            </label>
+            <label class="chip-label">
+                <input type="checkbox" name="opt_gonghang" value="on" {% if request.args.get('opt_gonghang') == 'on' %}checked{% endif %}>
+                <span class="chip-text">공항대로변</span>
+            </label>
+            <label class="chip-label">
+                <input type="checkbox" name="opt_corner" value="on" {% if request.args.get('opt_corner') == 'on' %}checked{% endif %}>
+                <span class="chip-text">코너양창</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="row-title">🤝 거래구분</div>
+        <div class="chip-group">
+            {% for cat in ['월세', '매매'] %}
+            <label class="chip-label">
+                <input type="checkbox" name="category" value="{{ cat }}" {% if cat in request.args.getlist('category') %}checked{% endif %}>
+                <span class="chip-text">{{ cat }}</span>
+            </label>
+            {% endfor %}
+        </div>
     </div>
 </div>
 
-<div class="form-row">
-    <label>옵션</label>
-    <div class="checkbox-group">
-        <label>
-            <input type="checkbox" name="opt_interior" value="on" {% if request.args.get('opt_interior') == 'on' %}checked{% endif %}> 룸/인테리어
-        </label>
-        <label>
-            <input type="checkbox" name="opt_gonghang" value="on" {% if request.args.get('opt_gonghang') == 'on' %}checked{% endif %}> 공항대로변
-        </label>
-        <label>
-            <input type="checkbox" name="opt_corner" value="on" {% if request.args.get('opt_corner') == 'on' %}checked{% endif %}> 코너양창
-        </label>
-    </div>
+<div style="text-align: center; margin: 20px 0 10px 0;">
+    <button type="button" id="condition-toggle-btn" onclick="toggleConditions()" style="background: #ffffff; color: #4b5563; border: 1px solid #d1d5db; padding: 12px 24px; border-radius: 999px; font-weight: 700; cursor: pointer; font-size: 15px; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+        🔽 상세 조건 (금액 / 면적) 설정하기
+    </button>
 </div>
 
+{% set has_cond = request.args.get('min_deposit') or request.args.get('max_deposit') or request.args.get('min_rent') or request.args.get('max_rent') or request.args.get('min_sale') or request.args.get('max_sale') or request.args.get('min_area') or request.args.get('max_area') %}
 
-<div class="form-row">
-    <label>거래구분</label>
-
-    <div class="checkbox-group">
-        <label>
-            <input type="checkbox" name="category" value="월세"
-            {% if '월세' in request.args.getlist('category') %}checked{% endif %}>
-            월세
-        </label>
-
-        <label>
-            <input type="checkbox" name="category" value="매매"
-            {% if '매매' in request.args.getlist('category') %}checked{% endif %}>
-            매매
-        </label>
-    </div>
-</div>
-
-
-<div class="condition-wrapper">
-
+<div class="condition-wrapper" id="condition-wrapper" style="{% if not has_cond %}display: none;{% endif %}">
+    
     <div class="condition-card">
-        <h3>금액 조건</h3>
-
+        <h3>💰 금액 조건</h3>
+        
         <label>보증금</label>
         <div class="range-group">
-            <input type="number" name="min_deposit" value="{{ request.args.get('min_deposit', '') }}">
+            <input type="number" name="min_deposit" value="{{ request.args.get('min_deposit', '') }}" placeholder="최소">
             <span>~</span>
-            <input type="number" name="max_deposit" value="{{ request.args.get('max_deposit', '') }}">
+            <input type="number" name="max_deposit" value="{{ request.args.get('max_deposit', '') }}" placeholder="최대">
         </div>
 
         <label>월세</label>
         <div class="range-group">
-            <input type="number" name="min_rent" value="{{ request.args.get('min_rent', '') }}">
+            <input type="number" name="min_rent" value="{{ request.args.get('min_rent', '') }}" placeholder="최소">
             <span>~</span>
-            <input type="number" name="max_rent" value="{{ request.args.get('max_rent', '') }}">
+            <input type="number" name="max_rent" value="{{ request.args.get('max_rent', '') }}" placeholder="최대">
         </div>
 
         <label>매매가</label>
         <div class="range-group">
-            <input type="number" name="min_sale" value="{{ request.args.get('min_sale', '') }}">
+            <input type="number" name="min_sale" value="{{ request.args.get('min_sale', '') }}" placeholder="최소">
             <span>~</span>
-            <input type="number" name="max_sale" value="{{ request.args.get('max_sale', '') }}">
+            <input type="number" name="max_sale" value="{{ request.args.get('max_sale', '') }}" placeholder="최대">
         </div>
     </div>
 
     <div class="condition-card">
-        <h3>면적 조건</h3>
-
+        <h3>📐 면적 조건</h3>
+        
         <label>전용면적(평)</label>
         <div class="range-group">
-            <input type="number" name="min_area" value="{{ request.args.get('min_area', '') }}">
+            <input type="number" name="min_area" value="{{ request.args.get('min_area', '') }}" placeholder="최소">
             <span>~</span>
-            <input type="number" name="max_area" value="{{ request.args.get('max_area', '') }}">
+            <input type="number" name="max_area" value="{{ request.args.get('max_area', '') }}" placeholder="최대">
         </div>
     </div>
-
 </div>
 
 
@@ -139,7 +150,7 @@
     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; margin-bottom: 15px; padding: 0 4px;">
         <h2 style="margin: 0;">검색 결과</h2>
         <div style="font-size: 16px; font-weight: 800; color: #2d7ff9;">
-            📦 검색된 매물 : {{ properties|length }} 개
+            📦 검색된 매물 : {{ pagination.total }} 개
         </div>
     </div>
 
@@ -548,6 +559,68 @@
 }
 
 
+/* ===== 🎨 모던 검색폼 디자인 업데이트 ===== */
+.row-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 10px;
+}
+
+.modern-input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    font-size: 15px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.modern-input:focus {
+    outline: none;
+    border-color: #2d7ff9;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(45, 127, 249, 0.15);
+}
+
+.chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+/* 찐 체크박스는 안 보이게 숨기기 */
+.chip-label input[type="checkbox"] {
+    display: none;
+}
+
+/* 버튼 기본 스타일 (선택 전) - 흰색 바탕 + 뚜렷한 테두리로 '누를 수 있음'을 강조 */
+.chip-text {
+    display: inline-block;
+    padding: 10px 18px;
+    background: #ffffff;          /* 칙칙한 회색 대신 깔끔한 흰색 */
+    color: #374151;               /* 글씨는 진한 회색 */
+    border-radius: 999px; 
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #d1d5db;    /* 뚜렷한 테두리 추가 */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* 살짝 떠 있는 느낌의 그림자 */
+}
+
+/* 터치했을 때 (선택 후) 스타일 - 완전 파란색으로 칠해서 확 눈에 띄게! */
+.chip-label input[type="checkbox"]:checked + .chip-text {
+    background: #2d7ff9;          /* 찐한 파란색 배경 */
+    color: #ffffff;               /* 글씨는 완전 흰색 */
+    border-color: #2d7ff9;        /* 테두리도 파란색으로 통일 */
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(45, 127, 249, 0.35); /* 그림자도 파란색 톤으로 강하게 */
+    transform: translateY(-2px);  /* 살짝 더 위로 떠오르는 효과 */
+}
+
 
 </style>
 
@@ -673,6 +746,40 @@ document.addEventListener("DOMContentLoaded", function() {
 
 });
 
+
+// 💡 상세 조건 창 접기/펴기 스크립트
+function toggleConditions() {
+    var wrapper = document.getElementById("condition-wrapper");
+    var btn = document.getElementById("condition-toggle-btn");
+    
+    if (wrapper.style.display === "none") {
+        // 열기 (디스플레이 제한을 풀어서 기존 CSS가 먹히게 함)
+        wrapper.style.display = ""; 
+        btn.innerHTML = "🔼 상세 조건 (금액 / 면적) 닫기";
+        btn.style.background = "#eef4ff";
+        btn.style.color = "#2d7ff9";
+        btn.style.borderColor = "#2d7ff9";
+    } else {
+        // 닫기
+        wrapper.style.display = "none";
+        btn.innerHTML = "🔽 상세 조건 (금액 / 면적) 설정하기";
+        btn.style.background = "#ffffff";
+        btn.style.color = "#4b5563";
+        btn.style.borderColor = "#d1d5db";
+    }
+}
+
+// 💡 페이지 처음 켰을 때, 조건이 입력되어 창이 열려있다면 버튼 색상도 활성화 상태로 맞춰주기
+document.addEventListener("DOMContentLoaded", function() {
+    var wrapper = document.getElementById("condition-wrapper");
+    var btn = document.getElementById("condition-toggle-btn");
+    if (wrapper && wrapper.style.display !== "none") {
+        btn.innerHTML = "🔼 상세 조건 (금액 / 면적) 닫기";
+        btn.style.background = "#eef4ff";
+        btn.style.color = "#2d7ff9";
+        btn.style.borderColor = "#2d7ff9";
+    }
+});
 
 
 </script>
